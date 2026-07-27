@@ -3,6 +3,9 @@
 낯선 곳에서 가까운 화장실을 찾고, 청결도·편의시설·이용조건까지 알려주는 지도 웹앱.
 상세 기획과 기능 명세(P0/P1/P2)는 @README.md 참고. 기획 배경은 @idea.md 참고.
 
+진행: 1단계(프로젝트 셋업 + Vercel 배포) 완료. 다음은 2단계 Supabase 스키마.
+배포: https://toilet-app-azure.vercel.app/ · 저장소: https://github.com/xodn0802/toilet-app
+
 ## 기술 스택
 
 - 프론트엔드: Next.js (React) + Tailwind
