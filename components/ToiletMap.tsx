@@ -152,16 +152,21 @@ export default function ToiletMap() {
         onError={() => setSdkFailed(true)}
       />
 
-      <div className="relative flex-1">
+      {/*
+        높이는 flex-1 이 아니라 h-full 로 잇는다. flex-1 은 flex-basis:0% 라서
+        조상의 높이가 퍼센트 해석 기준으로 확정되지 않고, 그러면 지도 컨테이너의
+        h-full 이 0 으로 무너져 지도가 흰 화면으로 보인다.
+      */}
+      <div className="relative h-full">
         <div ref={containerRef} className="h-full w-full bg-zinc-100" />
 
         {/* 실제 화장실 정보가 아님을 밝힌다. 3·4단계로 실제 데이터가 들어오면 지운다. */}
-        <p className="pointer-events-none absolute inset-x-0 top-0 bg-amber-100/95 px-3 py-2 text-center text-xs text-amber-900">
+        <p className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-amber-100/95 px-3 py-2 text-center text-xs text-amber-900">
           임시 표본 데이터입니다. 실제 화장실 정보가 아닙니다.
         </p>
 
         {locationMessage && (
-          <p className="pointer-events-none absolute inset-x-0 top-9 bg-zinc-900/80 px-3 py-2 text-center text-xs text-white">
+          <p className="pointer-events-none absolute inset-x-0 top-9 z-10 bg-zinc-900/80 px-3 py-2 text-center text-xs text-white">
             {locationMessage}
           </p>
         )}

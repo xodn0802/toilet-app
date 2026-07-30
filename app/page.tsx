@@ -2,7 +2,7 @@ import ToiletMap from "@/components/ToiletMap";
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="flex h-full flex-col">
       <ToiletMap />
     </main>
   );
