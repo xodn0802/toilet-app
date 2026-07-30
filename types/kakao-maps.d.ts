@@ -20,9 +20,23 @@ declare namespace kakao.maps {
     level?: number;
   }
 
+  class LatLngBounds {
+    constructor();
+    /** 주어진 좌표를 포함하도록 영역을 넓힌다. */
+    extend(latlng: LatLng): void;
+  }
+
   class Map {
     constructor(container: HTMLElement, options: MapOptions);
     setCenter(latlng: LatLng): void;
+    /** 영역이 화면에 들어오도록 중심·확대를 맞춘다. 여백은 px 단위. */
+    setBounds(
+      bounds: LatLngBounds,
+      paddingTop?: number,
+      paddingRight?: number,
+      paddingBottom?: number,
+      paddingLeft?: number,
+    ): void;
     relayout(): void;
   }
 
@@ -45,6 +59,19 @@ declare namespace kakao.maps {
 
   class CustomOverlay {
     constructor(options: CustomOverlayOptions);
+    setMap(map: Map | null): void;
+  }
+
+  interface PolylineOptions {
+    path: LatLng[];
+    strokeWeight?: number;
+    strokeColor?: string;
+    strokeOpacity?: number;
+    strokeStyle?: "solid" | "shortdash" | "dash" | "dot";
+  }
+
+  class Polyline {
+    constructor(options: PolylineOptions);
     setMap(map: Map | null): void;
   }
 

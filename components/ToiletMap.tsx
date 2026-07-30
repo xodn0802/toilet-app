@@ -3,9 +3,12 @@
 import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { fetchWalkRoute } from "@/lib/route/fetch-walk-route";
+import type { RouteState } from "@/lib/route/state";
 import { fetchToilets } from "@/lib/toilets/fetch-toilets";
 import { isMappable, type MappableToilet } from "@/lib/toilets/types";
 
+import RouteBanner from "./RouteBanner";
 import ToiletDetailSheet from "./ToiletDetailSheet";
 
 /** 인하대학교. 위치 권한을 못 받았을 때의 기본 중심. */
@@ -42,6 +45,7 @@ export default function ToiletMap() {
   const [selected, setSelected] = useState<MappableToilet | null>(null);
   const [locationState, setLocationState] = useState<LocationState>("pending");
   const [center, setCenter] = useState(INHA_UNIV);
+  const [routeState, setRouteState] = useState<RouteState>({ status: "idle" });
 
   const handleSdkReady = useCallback(() => {
     // autoload=false 로 불러왔으므로 직접 초기화해야 한다.
@@ -120,7 +124,15 @@ export default function ToiletMap() {
         title: toilet.name,
       });
       marker.setMap(map);
-      kakao.maps.event.addListener(marker, "click", () => setSelected(toilet));
+      kakao.maps.event.addListener(marker, "click", () => {
+        setSelected(toilet);
+        // 다른 화장실을 고르면 앞서 그린 경로는 더 이상 맞지 않으므로 지운다.
+        setRouteState((prev) =>
+          prev.status !== "idle" && prev.toilet.id !== toilet.id
+            ? { status: "idle" }
+            : prev,
+        );
+      });
       return marker;
     });
     markersRef.current = markers;
@@ -131,7 +143,72 @@ export default function ToiletMap() {
     };
   }, [toilets, sdkReady]);
 
+  // 경로 폴리라인. 상태가 ready 일 때만 그리고, 바뀌면 지웠다 다시 그린다.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!sdkReady || !map || routeState.status !== "ready") return;
+
+    const path = routeState.route.path.map(
+      (point) => new kakao.maps.LatLng(point.lat, point.lng),
+    );
+
+    const polyline = new kakao.maps.Polyline({
+      path,
+      strokeWeight: 6,
+      strokeColor: "#3b82f6",
+      strokeOpacity: 0.9,
+      strokeStyle: "solid",
+    });
+    polyline.setMap(map);
+
+    // 경로 전체가 보이도록 맞추되, 위 배너와 아래 상세 시트에 가리지 않게 여백을 준다.
+    const bounds = new kakao.maps.LatLngBounds();
+    path.forEach((point) => bounds.extend(point));
+    map.setBounds(bounds, 110, 40, 260, 40);
+
+    return () => polyline.setMap(null);
+  }, [routeState, sdkReady]);
+
+  const handleNavigate = useCallback(async () => {
+    const toilet = selected;
+    if (!toilet || locationState !== "granted") return;
+
+    setRouteState({ status: "loading", toilet });
+
+    // 요청 중에 다른 화장실로 옮겨갔다면 늦게 온 응답은 버린다.
+    const applyIfCurrent = (next: RouteState) =>
+      setRouteState((prev) =>
+        prev.status === "loading" && prev.toilet.id === toilet.id ? next : prev,
+      );
+
+    try {
+      const route = await fetchWalkRoute({
+        start: center,
+        end: { lat: toilet.lat, lng: toilet.lng },
+        endName: toilet.name,
+      });
+      applyIfCurrent({ status: "ready", toilet, route });
+    } catch (error) {
+      applyIfCurrent({
+        status: "error",
+        toilet,
+        message:
+          error instanceof Error
+            ? error.message
+            : "경로를 불러오지 못했습니다.",
+      });
+    }
+  }, [selected, center, locationState]);
+
   const locationMessage = LOCATION_MESSAGE[locationState];
+
+  // 상세 시트에는 지금 열려 있는 화장실의 경로만 넘긴다.
+  const selectedRoute =
+    routeState.status === "ready" && routeState.toilet.id === selected?.id
+      ? routeState.route
+      : null;
+  const selectedLoading =
+    routeState.status === "loading" && routeState.toilet.id === selected?.id;
 
   if (!KAKAO_APP_KEY) {
     return (
@@ -160,16 +237,32 @@ export default function ToiletMap() {
       <div className="relative h-full">
         <div ref={containerRef} className="h-full w-full bg-zinc-100" />
 
-        {/* 실제 화장실 정보가 아님을 밝힌다. 3·4단계로 실제 데이터가 들어오면 지운다. */}
-        <p className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-amber-100/95 px-3 py-2 text-center text-xs text-amber-900">
-          임시 표본 데이터입니다. 실제 화장실 정보가 아닙니다.
-        </p>
-
-        {locationMessage && (
-          <p className="pointer-events-none absolute inset-x-0 top-9 z-10 bg-zinc-900/80 px-3 py-2 text-center text-xs text-white">
-            {locationMessage}
+        {/*
+          지도 위에 얹는 것들은 z-10 이상이어야 한다. 카카오 내부 레이어가
+          z-index 1·2 를 쓰므로 auto 면 덮인다. 위에서부터 차례로 쌓기 위해
+          하나의 컨테이너에 모으고, 클릭이 필요한 배너에만 pointer-events 를 준다.
+        */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10">
+          {/* 실제 화장실 정보가 아님을 밝힌다. 3·4단계로 실제 데이터가 들어오면 지운다. */}
+          <p className="bg-amber-100/95 px-3 py-2 text-center text-xs text-amber-900">
+            임시 표본 데이터입니다. 실제 화장실 정보가 아닙니다.
           </p>
-        )}
+
+          {locationMessage && (
+            <p className="bg-zinc-900/80 px-3 py-2 text-center text-xs text-white">
+              {locationMessage}
+            </p>
+          )}
+
+          {routeState.status !== "idle" && (
+            <div className="pointer-events-auto">
+              <RouteBanner
+                state={routeState}
+                onCancel={() => setRouteState({ status: "idle" })}
+              />
+            </div>
+          )}
+        </div>
 
         {!sdkReady && !sdkFailed && (
           <p className="absolute inset-0 flex items-center justify-center text-sm text-zinc-500">
@@ -187,6 +280,10 @@ export default function ToiletMap() {
         {selected && (
           <ToiletDetailSheet
             toilet={selected}
+            route={selectedRoute}
+            loading={selectedLoading}
+            canNavigate={locationState === "granted"}
+            onNavigate={handleNavigate}
             onClose={() => setSelected(null)}
           />
         )}

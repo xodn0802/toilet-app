@@ -1,9 +1,20 @@
 "use client";
 
+import {
+  formatDistance,
+  formatDuration,
+  type WalkRoute,
+} from "@/lib/route/types";
 import type { MappableToilet } from "@/lib/toilets/types";
 
 type Props = {
   toilet: MappableToilet;
+  /** 이 화장실까지의 도보 경로. 아직 길찾기를 안 했으면 null. */
+  route: WalkRoute | null;
+  loading: boolean;
+  /** 현재 위치를 못 받았으면 출발지가 없어 길찾기를 할 수 없다. */
+  canNavigate: boolean;
+  onNavigate: () => void;
   onClose: () => void;
 };
 
@@ -34,7 +45,14 @@ function formatToiletCounts(toilet: MappableToilet): string {
   return parts.length > 0 ? parts.join(" / ") : UNKNOWN;
 }
 
-export default function ToiletDetailSheet({ toilet, onClose }: Props) {
+export default function ToiletDetailSheet({
+  toilet,
+  route,
+  loading,
+  canNavigate,
+  onNavigate,
+  onClose,
+}: Props) {
   const rows: { label: string; value: string }[] = [
     {
       label: "주소",
@@ -48,6 +66,16 @@ export default function ToiletDetailSheet({ toilet, onClose }: Props) {
       value: `${toilet.lat.toFixed(5)}, ${toilet.lng.toFixed(5)}`,
     },
   ];
+
+  // 경로를 받아온 뒤에만 거리·소요시간을 알 수 있다.
+  if (route) {
+    rows.splice(1, 0, {
+      label: "거리",
+      value: `${formatDistance(route.distanceMeters)} · ${formatDuration(
+        route.durationSeconds,
+      )}`,
+    });
+  }
 
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 rounded-t-2xl border-t border-zinc-200 bg-white p-5 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] dark:border-zinc-700 dark:bg-zinc-900">
@@ -71,6 +99,22 @@ export default function ToiletDetailSheet({ toilet, onClose }: Props) {
           </div>
         ))}
       </dl>
+
+      {/* 경로가 이미 지도에 그려져 있으면 다시 부를 이유가 없어 버튼을 감춘다. */}
+      {!route && (
+        <button
+          type="button"
+          onClick={onNavigate}
+          disabled={loading || !canNavigate}
+          className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
+        >
+          {loading
+            ? "경로를 찾는 중…"
+            : canNavigate
+              ? "길찾기"
+              : "현재 위치를 알 수 없어 길찾기를 할 수 없습니다"}
+        </button>
+      )}
     </div>
   );
 }
