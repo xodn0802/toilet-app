@@ -1,26 +1,103 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+  청자(靑瓷) 팔레트. 변기·세면대의 재료인 도기에서 가져온 청록을 브랜드 색으로 쓴다.
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  색은 전부 여기서만 정한다. 컴포넌트에는 `bg-brand`, `text-muted` 처럼 이름으로만
+  쓰고 hex 를 직접 쓰지 않는다. 다크 모드도 같은 이름의 값만 바꾸므로 컴포넌트에
+  `dark:` 를 달 필요가 없다 — 한 색을 고치려고 파일 열 개를 뒤지지 않게 하려는 것.
+*/
+:root {
+  --paper: #f2f5f3; /* 화면 바닥 */
+  --surface: #ffffff; /* 그 위에 올라가는 면 — 앱바·시트·카드 */
+  --sunken: #f7f8f6; /* 면보다 한 단 들어간 곳 — 입력칸 */
+  --ink: #14231f; /* 본문 */
+  --muted: #6b7672; /* 보조 설명, 라벨 */
+  --line: #e2e7e4;
+
+  --brand: #2e7d6b; /* 길찾기·로그인처럼 진행시키는 동작 */
+  --brand-strong: #25675a; /* 그 위에 마우스를 올렸을 때 */
+  --brand-ink: #ffffff; /* 브랜드 색 위에 얹는 글씨 */
+  --brand-soft: #e4f1ec; /* 켜진 태그칩, 선택된 상태 */
+  --brand-soft-ink: #1f5a4c;
+  --brand-soft-line: #b9dbd0;
+
+  --signal: #e2622c; /* 에러, 확인이 필요한 상태 */
+  --signal-soft: #fdf0e8;
+  --signal-soft-ink: #8a3a12;
+
+  --star: #e8a33c;
+  --star-empty: #d3d9d6;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #0d1412;
+    --surface: #17211e;
+    --sunken: #1e2b27;
+    --ink: #e8edea;
+    --muted: #93a09b;
+    --line: #2a3733;
+
+    --brand: #4fa98f;
+    --brand-strong: #65c0a6;
+    --brand-ink: #06201a;
+    --brand-soft: #1b322c;
+    --brand-soft-ink: #a7d9c8;
+    --brand-soft-line: #2d4d44;
+
+    --signal: #ff7a45;
+    --signal-soft: #3a1f13;
+    --signal-soft-ink: #ffb894;
+
+    --star: #f0b657;
+    --star-empty: #3a4844;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-ink: var(--brand-soft-ink);
+  --color-brand-soft-line: var(--brand-soft-line);
+
+  --color-signal: var(--signal);
+  --color-signal-soft: var(--signal-soft);
+  --color-signal-soft-ink: var(--signal-soft-ink);
+
+  --color-star: var(--star);
+  --color-star-empty: var(--star-empty);
+
+  --font-wordmark: var(--font-black-han-sans);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
   font-family:
     -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
     "Noto Sans KR", sans-serif;
+}
+
+/* 급할 때 쓰는 앱이다. 지도를 끌 때 글자가 잡히면 방해만 된다. */
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

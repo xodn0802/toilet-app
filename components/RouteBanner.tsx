@@ -25,25 +25,30 @@ function subtitle(state: Props["state"]): string {
 export default function RouteBanner({ state, onCancel }: Props) {
   const isError = state.status === "error";
 
+  // 아이콘·버튼 배경은 bg-current/15 로 글자색에서 뜬다. 밝은 배너 위에서는
+  // 밝게, 어두운 배너 위에서는 어둡게 잡혀 어느 쪽이든 대비가 남는다.
+  const tone = isError ? "bg-signal text-white" : "bg-brand text-brand-ink";
+
   return (
     <div
-      className={`m-3 flex items-center gap-3 rounded-xl px-4 py-3 text-white shadow-lg ${
-        isError ? "bg-red-600" : "bg-blue-600"
-      }`}
+      className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-[0_2px_16px_rgba(20,35,31,0.2)] ${tone}`}
     >
-      <span aria-hidden className="text-xl leading-none">
+      <span
+        aria-hidden
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-current/15 text-lg leading-none"
+      >
         {isError ? "!" : "→"}
       </span>
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{state.toilet.name}</p>
-        <p className="truncate text-sm text-white/80">{subtitle(state)}</p>
+        <p className="truncate text-sm opacity-80">{subtitle(state)}</p>
       </div>
 
       <button
         type="button"
         onClick={onCancel}
-        className="shrink-0 rounded-lg bg-white/20 px-3 py-1.5 text-sm hover:bg-white/30"
+        className="shrink-0 rounded-lg bg-current/15 px-3 py-1.5 text-sm hover:bg-current/25"
       >
         취소
       </button>

@@ -29,6 +29,7 @@ declare namespace kakao.maps {
   class Map {
     constructor(container: HTMLElement, options: MapOptions);
     setCenter(latlng: LatLng): void;
+    setLevel(level: number): void;
     /** 영역이 화면에 들어오도록 중심·확대를 맞춘다. 여백은 px 단위. */
     setBounds(
       bounds: LatLngBounds,
@@ -40,14 +41,36 @@ declare namespace kakao.maps {
     relayout(): void;
   }
 
+  /** 마커 이미지의 크기·기준점을 재는 단위. px. */
+  class Size {
+    constructor(width: number, height: number);
+  }
+
+  class Point {
+    constructor(x: number, y: number);
+  }
+
+  interface MarkerImageOptions {
+    /** 이미지 안에서 좌표에 맞출 지점. 핀은 뾰족한 끝이라 (가로중앙, 높이). */
+    offset?: Point;
+  }
+
+  class MarkerImage {
+    constructor(src: string, size: Size, options?: MarkerImageOptions);
+  }
+
   interface MarkerOptions {
     position: LatLng;
     title?: string;
+    image?: MarkerImage;
+    zIndex?: number;
   }
 
   class Marker {
     constructor(options: MarkerOptions);
     setMap(map: Map | null): void;
+    setImage(image: MarkerImage): void;
+    setZIndex(zIndex: number): void;
   }
 
   interface CustomOverlayOptions {
