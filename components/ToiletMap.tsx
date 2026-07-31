@@ -46,18 +46,29 @@ export default function ToiletMap() {
   const [locationState, setLocationState] = useState<LocationState>("pending");
   const [center, setCenter] = useState(INHA_UNIV);
   const [routeState, setRouteState] = useState<RouteState>({ status: "idle" });
+  const [toiletsError, setToiletsError] = useState<string | null>(null);
 
   const handleSdkReady = useCallback(() => {
     // autoload=false 로 불러왔으므로 직접 초기화해야 한다.
     window.kakao.maps.load(() => setSdkReady(true));
   }, []);
 
-  // 화장실 목록. 지금은 임시 데이터, 나중에 Supabase 쿼리로 교체된다.
+  // 화장실 목록. Supabase 의 toilets 에서 좌표가 확보된 행만 가져온다.
   useEffect(() => {
     let cancelled = false;
-    fetchToilets().then((rows) => {
-      if (!cancelled) setToilets(rows.filter(isMappable));
-    });
+    fetchToilets()
+      .then((rows) => {
+        if (!cancelled) setToilets(rows.filter(isMappable));
+      })
+      // 실패를 삼키면 지도가 아무 설명 없이 텅 빈 상태가 돼 원인을 찾기 어렵다.
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setToiletsError(
+          error instanceof Error
+            ? error.message
+            : "화장실 목록을 불러오지 못했습니다.",
+        );
+      });
     return () => {
       cancelled = true;
     };
@@ -247,6 +258,12 @@ export default function ToiletMap() {
           <p className="bg-amber-100/95 px-3 py-2 text-center text-xs text-amber-900">
             임시 표본 데이터입니다. 실제 화장실 정보가 아닙니다.
           </p>
+
+          {toiletsError && (
+            <p className="bg-red-600 px-3 py-2 text-center text-xs text-white">
+              {toiletsError}
+            </p>
+          )}
 
           {locationMessage && (
             <p className="bg-zinc-900/80 px-3 py-2 text-center text-xs text-white">
