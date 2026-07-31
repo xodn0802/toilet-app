@@ -24,6 +24,8 @@
   - 색은 `app/globals.css` 한 곳에만 있다. 아래 "색은 globals.css 에서만" 참고.
   - 리뷰 UI(별점·태그·사진)는 **화면만** 만들었다. 저장은 아직 안 한다.
     로그인(P0 7번)이 있어야 RLS를 통과한다.
+- 완료 배포 정상화 (c6ce8e0) — Vercel에 Supabase 두 변수 등록 후 재배포.
+  배포된 앱에서 마커 6건·콘솔 에러 0 확인(2026-07-31).
 - 대기 3·4단계 — 공공데이터 수집 + 주소 지오코딩.
   - `DATA_GO_KR_SERVICE_KEY`: **아직 비어 있음.** 이것만 있으면 3단계 시작 가능.
   - `KAKAO_REST_API_KEY`: 발급 완료. 지오코딩 호출 성공 확인함(2026-07-31).
@@ -31,30 +33,17 @@
     `address_type`이 `REGION`이면 동 중심점이라 화장실 좌표로는 부정확하니
     4단계에서 `geocode_status='failed'`로 두고 사람이 보게 한다.
 
-### 지금 배포가 깨져 있다 (2026-07-31 확인)
+### 배포 깨짐 해결됨 (2026-07-31)
 
-프로덕션에서 "NEXT_PUBLIC_SUPABASE_URL 과 NEXT_PUBLIC_SUPABASE_ANON_KEY 가
-필요합니다" 에러가 뜬다. **Vercel에 두 변수가 등록돼 있지 않다.** 5db971a로
-데이터 소스를 Supabase로 바꾸기 전까지 앱이 Supabase를 안 썼기 때문이다.
+프로덕션이 "NEXT_PUBLIC_SUPABASE_URL 과 NEXT_PUBLIC_SUPABASE_ANON_KEY 가
+필요합니다"로 죽어 있었다. 5db971a로 데이터 소스를 Supabase로 바꿨는데
+Vercel에 두 변수를 등록하지 않아서였다. 사용자가 등록했고, c6ce8e0 배포에서
+**마커 6개·콘솔 에러 0**으로 정상 동작을 확인했다.
 
-배포 번들에서 확인한 증거 — 카카오 키는 리터럴로 치환됐는데 Supabase 쪽만
-런타임 조회로 남아 있다. 브라우저의 `process` 폴리필은 빈 객체라 `undefined`가 된다.
-
-```js
-src: "https://dapi.kakao.com/v2/maps/sdk.js?appkey=c632c12c…"; // 치환됨
-let e = b.default.env.NEXT_PUBLIC_SUPABASE_URL; // 치환 안 됨
-```
-
-고치는 순서:
-
-1. Vercel > Settings > Environment Variables에 `NEXT_PUBLIC_SUPABASE_URL`과
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY` 추가 (Production 체크)
-2. **재배포한다.** `NEXT_PUBLIC_*`은 빌드 때 번들에 박히는 값이라 변수만
-   추가하면 기존 배포는 그대로 깨져 있다. Deployments > 최신 배포 > Redeploy.
-3. Sensitive는 체크하지 않는다. 어차피 번들에 박혀 의미가 없고 확인만 불편해진다.
-
-교훈: 클라이언트에서 새 환경변수를 쓰기 시작하면 **push 전에 Vercel 등록 여부를
-먼저 확인한다.** 로컬 `.env.local`에 있다고 배포가 되는 것이 아니다.
+교훈 — 클라이언트에서 새 환경변수를 쓰기 시작하면 **push 전에 Vercel 등록
+여부를 먼저 확인한다.** 로컬 `.env.local`에 있다고 배포되는 것이 아니다.
+그리고 `NEXT_PUBLIC_*`은 빌드 때 번들에 박히는 값이라, 변수만 추가하고
+재배포하지 않으면 **기존 배포는 그대로 깨져 있다.**
 
 ### 현재 위치가 부정확한 문제 (2026-07-31 확인)
 
@@ -110,8 +99,7 @@ let e = b.default.env.NEXT_PUBLIC_SUPABASE_URL; // 치환 안 됨
 
 ### 다음 할 일
 
-위 네 건(배포 환경변수, 위치 정확도, 다크 모드 토글, 반경 표시)을
-먼저 처리한 뒤 아래로 간다.
+위 세 건(위치 정확도, 다크 모드 토글, 반경 표시)을 먼저 처리한 뒤 아래로 간다.
 
 별점(P0 5번)을 하려면 **로그인(P0 7번)이 먼저다.** `reviews.user_id`가
 `auth.users(id)` 참조에 not null이고, RLS 작성 정책이 `to authenticated` +
