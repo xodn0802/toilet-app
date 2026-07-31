@@ -27,7 +27,55 @@
     `address_type`이 `REGION`이면 동 중심점이라 화장실 좌표로는 부정확하니
     4단계에서 `geocode_status='failed'`로 두고 사람이 보게 한다.
 
+### 지금 배포가 깨져 있다 (2026-07-31 확인)
+
+프로덕션에서 "NEXT_PUBLIC_SUPABASE_URL 과 NEXT_PUBLIC_SUPABASE_ANON_KEY 가
+필요합니다" 에러가 뜬다. **Vercel에 두 변수가 등록돼 있지 않다.** 5db971a로
+데이터 소스를 Supabase로 바꾸기 전까지 앱이 Supabase를 안 썼기 때문이다.
+
+배포 번들에서 확인한 증거 — 카카오 키는 리터럴로 치환됐는데 Supabase 쪽만
+런타임 조회로 남아 있다. 브라우저의 `process` 폴리필은 빈 객체라 `undefined`가 된다.
+
+```js
+src: "https://dapi.kakao.com/v2/maps/sdk.js?appkey=c632c12c…"; // 치환됨
+let e = b.default.env.NEXT_PUBLIC_SUPABASE_URL; // 치환 안 됨
+```
+
+고치는 순서:
+
+1. Vercel > Settings > Environment Variables에 `NEXT_PUBLIC_SUPABASE_URL`과
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` 추가 (Production 체크)
+2. **재배포한다.** `NEXT_PUBLIC_*`은 빌드 때 번들에 박히는 값이라 변수만
+   추가하면 기존 배포는 그대로 깨져 있다. Deployments > 최신 배포 > Redeploy.
+3. Sensitive는 체크하지 않는다. 어차피 번들에 박혀 의미가 없고 확인만 불편해진다.
+
+교훈: 클라이언트에서 새 환경변수를 쓰기 시작하면 **push 전에 Vercel 등록 여부를
+먼저 확인한다.** 로컬 `.env.local`에 있다고 배포가 되는 것이 아니다.
+
+### 현재 위치가 부정확한 문제 (2026-07-31 확인)
+
+데스크톱에서 열면 실제 위치(인하대)와 4km 떨어진 곳(송현근린공원)이 찍힌다.
+`ToiletMap.tsx`의 위치 코드는 정상이고, **브라우저가 그 좌표를 준 것이다.**
+데스크톱은 GPS가 없어 WiFi·IP로 추정하는데, IP만 남으면 ISP 기지국 위치가 나온다.
+휴대폰(GPS)으로 열면 정확한지 먼저 확인할 것.
+
+문제는 지금 코드가 `position.coords.accuracy`(오차 반경, m)를 **아예 안 본다는**
+점이다. GPS면 10-50m, IP 기반이면 수천 m 이상이 들어온다. 그래서 4km 떨어진
+지점을 파란 점으로 자신 있게 찍고, **길찾기 출발지도 그 틀린 위치가 된다.**
+"279m · 도보 4분"이 실제로는 4km일 수 있다.
+
+고칠 방향 — **아직 정하지 않았다. 다음 세션에서 고르고 시작한다.** (A를 권함)
+
+- **A.** `accuracy`가 임계값(예: 1km)을 넘으면 "현재 위치가 부정확합니다" 안내 +
+  파란 점 대신 오차 반경 원을 그린다. 몇 줄이면 되고, "틀린 정보를 맞다고
+  보여주는" 가장 나쁜 상태를 없앤다.
+- **B.** `watchPosition`으로 더 정확한 값이 오면 갱신한다. 처음엔 IP였다가 곧
+  WiFi로 정밀해지는 경우를 잡는다.
+- **C.** 지도를 눌러 출발지를 직접 지정한다. 실내·지하까지 대응.
+
 ### 다음 할 일
+
+위 두 건(배포 환경변수, 위치 정확도)을 먼저 처리한 뒤 아래로 간다.
 
 별점(P0 5번)을 하려면 **로그인(P0 7번)이 먼저다.** `reviews.user_id`가
 `auth.users(id)` 참조에 not null이고, RLS 작성 정책이 `to authenticated` +
