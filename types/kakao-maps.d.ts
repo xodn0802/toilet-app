@@ -98,6 +98,25 @@ declare namespace kakao.maps {
     setMap(map: Map | null): void;
   }
 
+  interface CircleOptions {
+    center: LatLng;
+    /** 반지름. m 단위. */
+    radius: number;
+    strokeWeight?: number;
+    strokeColor?: string;
+    strokeOpacity?: number;
+    strokeStyle?: "solid" | "shortdash" | "dash" | "dot";
+    fillColor?: string;
+    fillOpacity?: number;
+  }
+
+  class Circle {
+    constructor(options: CircleOptions);
+    setMap(map: Map | null): void;
+    /** 원에 외접하는 사각 영역. setBounds 로 화면을 맞출 때 쓴다. */
+    getBounds(): LatLngBounds;
+  }
+
   namespace event {
     function addListener(
       target: object,

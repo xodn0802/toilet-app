@@ -9,6 +9,7 @@ import { mockReviewsFor } from "@/lib/reviews/mock-reviews";
 import type { Review, ReviewDraft } from "@/lib/reviews/types";
 import { fetchWalkRoute } from "@/lib/route/fetch-walk-route";
 import type { RouteState } from "@/lib/route/state";
+import { formatDistance } from "@/lib/route/types";
 import { fetchToilets } from "@/lib/toilets/fetch-toilets";
 import { isMappable, type MappableToilet } from "@/lib/toilets/types";
 
@@ -26,6 +27,21 @@ const KAKAO_APP_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
 
 /** 경로선. 지도에 넘기는 값이라 CSS 변수를 못 쓴다. --brand 와 같은 색. */
 const ROUTE_COLOR = "#2E7D6B";
+
+/** 오차 반경 원. 위와 같은 이유로 리터럴이고, --signal 의 라이트 모드 값이다. */
+const ACCURACY_COLOR = "#E2622C";
+
+/**
+ * 이 값을 넘는 오차 반경은 현재 위치를 점 하나로 단정하지 않는다.
+ *
+ * GPS 는 보통 10-50m, WiFi 는 수백 m 다. 데스크톱처럼 둘 다 없어 IP 로 추정하면
+ * ISP 기지국 위치가 수 km 오차로 들어온다 — 그걸 파란 점으로 찍으면 사용자는
+ * 엉뚱한 곳을 자기 위치로 믿는다.
+ */
+const ACCURACY_LIMIT_M = 1000;
+
+/** 오차 원을 화면에 맞출 때의 여백(px). 위는 앱바·안내 문구를 피해 넓게 준다. */
+const ACCURACY_FIT_PADDING = [170, 40, 40, 40] as const;
 
 /**
  * 위치 권한 상태.
@@ -70,6 +86,7 @@ export default function ToiletMap() {
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const markersRef = useRef<{ id: string; marker: kakao.maps.Marker }[]>([]);
   const myLocationRef = useRef<kakao.maps.CustomOverlay | null>(null);
+  const accuracyCircleRef = useRef<kakao.maps.Circle | null>(null);
 
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkFailed, setSdkFailed] = useState(false);
@@ -78,6 +95,8 @@ export default function ToiletMap() {
   const [selected, setSelected] = useState<MappableToilet | null>(null);
   const [locationState, setLocationState] = useState<LocationState>("pending");
   const [center, setCenter] = useState(INHA_UNIV);
+  /** 브라우저가 알려준 오차 반경(m). 위치를 못 받았으면 null. */
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [routeState, setRouteState] = useState<RouteState>({ status: "idle" });
   const [toiletsError, setToiletsError] = useState<string | null>(null);
 
@@ -93,6 +112,9 @@ export default function ToiletMap() {
     // autoload=false 로 불러왔으므로 직접 초기화해야 한다.
     window.kakao.maps.load(() => setSdkReady(true));
   }, []);
+
+  /** 좌표는 받았지만 믿고 쓰기엔 오차가 큰 상태. */
+  const locationCoarse = accuracy !== null && accuracy > ACCURACY_LIMIT_M;
 
   // 화장실 목록. Supabase 의 toilets 에서 좌표가 확보된 행만 가져온다.
   useEffect(() => {
@@ -124,6 +146,7 @@ export default function ToiletMap() {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
+        setAccuracy(position.coords.accuracy);
         setLocationState("granted");
       },
       () => setLocationState("denied"),
@@ -146,13 +169,43 @@ export default function ToiletMap() {
     mapRef.current.setCenter(new kakao.maps.LatLng(center.lat, center.lng));
   }, [center, sdkReady]);
 
-  // 현재 위치 표시(파란 점). 권한을 받은 경우에만 그린다.
+  // 현재 위치 표시. 권한을 받은 경우에만 그린다.
+  //
+  // 오차가 크면 점 대신 오차 반경 원을 그린다. 점은 "여기 있다"는 뜻이라
+  // 수 km 를 벗어난 좌표에 찍으면 거짓말이 된다. 원은 "이 안 어딘가"라고
+  // 말하므로 브라우저가 실제로 준 정보와 어긋나지 않는다.
   useEffect(() => {
     const map = mapRef.current;
     if (!sdkReady || !map || locationState !== "granted") return;
 
+    const position = new kakao.maps.LatLng(center.lat, center.lng);
+
+    if (locationCoarse && accuracy !== null) {
+      const circle = new kakao.maps.Circle({
+        center: position,
+        radius: accuracy,
+        strokeWeight: 2,
+        strokeColor: ACCURACY_COLOR,
+        strokeOpacity: 0.7,
+        strokeStyle: "dash",
+        fillColor: ACCURACY_COLOR,
+        fillOpacity: 0.12,
+      });
+      circle.setMap(map);
+      accuracyCircleRef.current = circle;
+
+      // 반경이 화면보다 크면 지도 전체가 주황으로 덮여 고장난 것처럼 보인다.
+      // 원이 다 들어오게 축척을 맞춰 "이만큼 불확실하다"를 눈에 보이게 한다.
+      map.setBounds(circle.getBounds(), ...ACCURACY_FIT_PADDING);
+
+      return () => {
+        circle.setMap(null);
+        accuracyCircleRef.current = null;
+      };
+    }
+
     const overlay = new kakao.maps.CustomOverlay({
-      position: new kakao.maps.LatLng(center.lat, center.lng),
+      position,
       content:
         '<div style="width:14px;height:14px;border-radius:9999px;background:#2E7D6B;border:2px solid #fff;box-shadow:0 0 0 5px rgba(46,125,107,0.22)"></div>',
       zIndex: 1,
@@ -164,7 +217,7 @@ export default function ToiletMap() {
       overlay.setMap(null);
       myLocationRef.current = null;
     };
-  }, [center, locationState, sdkReady]);
+  }, [center, accuracy, locationCoarse, locationState, sdkReady]);
 
   // 화장실 마커.
   useEffect(() => {
@@ -298,10 +351,23 @@ export default function ToiletMap() {
     const map = mapRef.current;
     if (!map) return;
     map.setCenter(new kakao.maps.LatLng(center.lat, center.lng));
+
+    // 오차 원이 떠 있으면 그 영역에 맞춘다. DEFAULT_LEVEL 로 당기면 원이
+    // 화면을 통째로 덮어 어디가 불확실한 건지 보이지 않는다.
+    const circle = accuracyCircleRef.current;
+    if (circle) {
+      map.setBounds(circle.getBounds(), ...ACCURACY_FIT_PADDING);
+      return;
+    }
     map.setLevel(DEFAULT_LEVEL);
   }, [center]);
 
-  const locationMessage = LOCATION_MESSAGE[locationState];
+  // 오차가 크면 그 사실이 "위치를 확인했다"보다 먼저다. 숫자까지 같이 보여야
+  // 사용자가 지도 위의 원과 문구를 연결해 읽을 수 있다.
+  const locationMessage =
+    locationCoarse && accuracy !== null
+      ? `현재 위치가 부정확합니다 · 오차 반경 약 ${formatDistance(accuracy)}`
+      : LOCATION_MESSAGE[locationState];
 
   // 상세 시트에는 지금 열려 있는 화장실의 경로만 넘긴다.
   const selectedRoute =
@@ -313,8 +379,11 @@ export default function ToiletMap() {
 
   // 길찾기를 누르기 전에도 대강의 거리를 보여준다. 위치를 못 받았으면 기본
   // 중심(인하대)이 들어 있어 거리가 의미 없으므로 표시하지 않는다.
+  //
+  // 오차가 클 때도 같은 이유로 감춘다. 출발지가 수 km 불확실한데 "555m" 라고
+  // 세 자리로 적으면 없는 정밀도를 있는 것처럼 말하게 된다.
   const selectedDistance =
-    selected && locationState === "granted"
+    selected && locationState === "granted" && !locationCoarse
       ? straightLineDistance(center, selected)
       : null;
 
@@ -385,6 +454,7 @@ export default function ToiletMap() {
             <div className="pointer-events-auto w-full">
               <RouteBanner
                 state={routeState}
+                originUncertain={locationCoarse}
                 onCancel={() => setRouteState({ status: "idle" })}
               />
             </div>
@@ -394,7 +464,11 @@ export default function ToiletMap() {
           <Notice tone="signal">표본 데이터 · 실제 정보가 아닙니다</Notice>
 
           {toiletsError && <Notice tone="error">{toiletsError}</Notice>}
-          {locationMessage && <Notice>{locationMessage}</Notice>}
+          {locationMessage && (
+            <Notice tone={locationCoarse ? "signal" : "muted"}>
+              {locationMessage}
+            </Notice>
+          )}
         </div>
 
         {/* 지도를 끌고 다니다 돌아올 길. 시트가 열리면 그 위로 비켜선다. */}

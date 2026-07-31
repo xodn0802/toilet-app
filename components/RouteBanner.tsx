@@ -6,6 +6,13 @@ import { formatDistance, formatDuration } from "@/lib/route/types";
 type Props = {
   /** idle 이 아닌 상태만 받는다. 배너는 길찾기가 시작된 뒤에만 뜬다. */
   state: Exclude<RouteState, { status: "idle" }>;
+  /**
+   * 현재 위치의 오차가 커서 경로의 출발지를 믿을 수 없는 상태.
+   *
+   * 거리·소요시간은 그 출발지에서 계산된 값이라 같이 틀린다. 길찾기 자체를
+   * 막지는 않지만 숫자를 그대로 두면 사용자가 맞는 줄 안다.
+   */
+  originUncertain?: boolean;
   onCancel: () => void;
 };
 
@@ -22,7 +29,11 @@ function subtitle(state: Props["state"]): string {
   }
 }
 
-export default function RouteBanner({ state, onCancel }: Props) {
+export default function RouteBanner({
+  state,
+  originUncertain = false,
+  onCancel,
+}: Props) {
   const isError = state.status === "error";
 
   // 아이콘·버튼 배경은 bg-current/15 로 글자색에서 뜬다. 밝은 배너 위에서는
@@ -43,6 +54,11 @@ export default function RouteBanner({ state, onCancel }: Props) {
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{state.toilet.name}</p>
         <p className="truncate text-sm opacity-80">{subtitle(state)}</p>
+        {originUncertain && (
+          <p className="truncate text-xs opacity-80">
+            현재 위치가 부정확해 출발지가 다를 수 있습니다
+          </p>
+        )}
       </div>
 
       <button
