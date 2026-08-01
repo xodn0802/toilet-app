@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useAuth } from "@/lib/auth/use-auth";
 import { straightLineDistance } from "@/lib/geo/distance";
 import {
   MARKER_Z,
@@ -105,10 +106,11 @@ export default function ToiletMap() {
   const [routeState, setRouteState] = useState<RouteState>({ status: "idle" });
   const [toiletsError, setToiletsError] = useState<string | null>(null);
 
-  // 아래 둘은 백엔드가 붙기 전까지 쓰는 목업이다.
-  // signedIn 은 P0 7번(Supabase Auth) 세션으로, reviewsByToilet 은 reviews
-  // 테이블 조회로 바뀐다. 지금은 새로고침하면 작성한 리뷰가 사라진다.
-  const [signedIn, setSignedIn] = useState(false);
+  const auth = useAuth();
+  const signedIn = auth.status === "in";
+
+  // reviewsByToilet 은 아직 목업이다. reviews 테이블 조회·저장(P0 5번)으로
+  // 바뀌기 전까지는 새로고침하면 작성한 리뷰가 사라진다.
   const [reviewsByToilet, setReviewsByToilet] = useState<
     Record<string, Review[]>
   >({});
@@ -470,8 +472,10 @@ export default function ToiletMap() {
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-start gap-2 p-3">
           <AppBar
             label={toilets === null ? null : nearbyLabel(summary)}
-            signedIn={signedIn}
-            onToggleSignIn={() => setSignedIn((prev) => !prev)}
+            auth={auth.status}
+            nickname={auth.nickname}
+            onSignIn={auth.signIn}
+            onSignOut={auth.signOut}
           />
 
           {routeState.status !== "idle" && (
@@ -488,6 +492,7 @@ export default function ToiletMap() {
           <Notice tone="signal">표본 데이터 · 실제 정보가 아닙니다</Notice>
 
           {toiletsError && <Notice tone="error">{toiletsError}</Notice>}
+          {auth.error && <Notice tone="error">{auth.error}</Notice>}
           {locationMessage && (
             <Notice tone={locationCoarse ? "signal" : "muted"}>
               {locationMessage}
@@ -531,7 +536,7 @@ export default function ToiletMap() {
             distanceMeters={selectedDistance}
             reviews={reviewsByToilet[selected.id] ?? []}
             signedIn={signedIn}
-            onSignIn={() => setSignedIn(true)}
+            onSignIn={auth.signIn}
             onSubmitReview={handleSubmitReview}
             onNavigate={handleNavigate}
             onClose={() => setSelected(null)}
