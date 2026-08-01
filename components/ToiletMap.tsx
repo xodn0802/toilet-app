@@ -1,16 +1,21 @@
 "use client";
 
 import Script from "next/script";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { straightLineDistance } from "@/lib/geo/distance";
-import { MARKER_Z, toiletMarkerImage } from "@/lib/map/toilet-marker";
+import {
+  MARKER_Z,
+  toiletMarkerImage,
+  type MarkerState,
+} from "@/lib/map/toilet-marker";
 import { mockReviewsFor } from "@/lib/reviews/mock-reviews";
 import type { Review, ReviewDraft } from "@/lib/reviews/types";
 import { fetchWalkRoute } from "@/lib/route/fetch-walk-route";
 import type { RouteState } from "@/lib/route/state";
 import { formatDistance } from "@/lib/route/types";
 import { fetchToilets } from "@/lib/toilets/fetch-toilets";
+import { nearbyLabel, summarizeNearby } from "@/lib/toilets/nearby";
 import { isMappable, type MappableToilet } from "@/lib/toilets/types";
 
 import AppBar from "./AppBar";
@@ -115,6 +120,20 @@ export default function ToiletMap() {
 
   /** 좌표는 받았지만 믿고 쓰기엔 오차가 큰 상태. */
   const locationCoarse = accuracy !== null && accuracy > ACCURACY_LIMIT_M;
+
+  /**
+   * 현재 위치를 거리의 기준점으로 써도 되는 상태.
+   *
+   * 앱바의 "1km 이내"와 상세 시트의 직선거리가 같은 조건을 봐야 한다. 한쪽만
+   * 감추면 "거리는 못 알려주면서 1km 이내라고는 하는" 화면이 된다.
+   */
+  const anchored = locationState === "granted" && !locationCoarse;
+
+  // 반경 안이 몇 곳인지. 문구(summary)와 마커(nearIds)가 같은 계산을 나눠 쓴다.
+  const { summary, nearIds } = useMemo(
+    () => summarizeNearby(toilets ?? [], anchored ? center : null),
+    [toilets, center, anchored],
+  );
 
   // 화장실 목록. Supabase 의 toilets 에서 좌표가 확보된 행만 가져온다.
   useEffect(() => {
@@ -228,7 +247,8 @@ export default function ToiletMap() {
       const marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(toilet.lat, toilet.lng),
         title: toilet.name,
-        image: toiletMarkerImage(false),
+        // 진하기는 바로 아래 effect 가 반경을 보고 다시 정한다.
+        image: toiletMarkerImage("normal"),
         zIndex: MARKER_Z.normal,
       });
       marker.setMap(map);
@@ -258,14 +278,20 @@ export default function ToiletMap() {
     };
   }, [toilets, sdkReady]);
 
-  // 선택된 핀만 키운다. 마커를 다시 만들면 깜빡이므로 이미지만 갈아 끼운다.
+  // 선택된 핀은 키우고, 반경 밖 핀은 흐리게 한다. 마커를 다시 만들면 깜빡이므로
+  // 이미지만 갈아 끼운다. nearIds 가 null 이면 기준점이 없다는 뜻이라 전부 진하다.
   useEffect(() => {
     markersRef.current.forEach(({ id, marker }) => {
-      const on = id === selected?.id;
-      marker.setImage(toiletMarkerImage(on));
-      marker.setZIndex(on ? MARKER_Z.selected : MARKER_Z.normal);
+      const state: MarkerState =
+        id === selected?.id
+          ? "selected"
+          : nearIds && !nearIds.has(id)
+            ? "far"
+            : "normal";
+      marker.setImage(toiletMarkerImage(state));
+      marker.setZIndex(MARKER_Z[state]);
     });
-  }, [selected, toilets, sdkReady]);
+  }, [selected, toilets, sdkReady, nearIds]);
 
   // 경로 폴리라인. 상태가 ready 일 때만 그리고, 바뀌면 지웠다 다시 그린다.
   useEffect(() => {
@@ -383,9 +409,7 @@ export default function ToiletMap() {
   // 오차가 클 때도 같은 이유로 감춘다. 출발지가 수 km 불확실한데 "555m" 라고
   // 세 자리로 적으면 없는 정밀도를 있는 것처럼 말하게 된다.
   const selectedDistance =
-    selected && locationState === "granted" && !locationCoarse
-      ? straightLineDistance(center, selected)
-      : null;
+    selected && anchored ? straightLineDistance(center, selected) : null;
 
   if (!KAKAO_APP_KEY) {
     return (
@@ -445,7 +469,7 @@ export default function ToiletMap() {
         */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-start gap-2 p-3">
           <AppBar
-            toiletCount={toilets?.length ?? null}
+            label={toilets === null ? null : nearbyLabel(summary)}
             signedIn={signedIn}
             onToggleSignIn={() => setSignedIn((prev) => !prev)}
           />
