@@ -26,6 +26,9 @@
     로그인(P0 7번)이 있어야 RLS를 통과한다.
 - 완료 배포 정상화 (c6ce8e0) — Vercel에 Supabase 두 변수 등록 후 재배포.
   배포된 앱에서 마커 6건·콘솔 에러 0 확인(2026-07-31).
+- 완료 위치 오차 표시 (d1e3be5) — `accuracy`가 1km를 넘으면 파란 점 대신 오차
+  반경 원. 아래 "현재 위치가 부정확한 문제" 참고. **실제 데스크톱에서 이게
+  켜지는지는 확인 못 했다** — 같은 절의 "남은 의문"을 먼저 읽을 것.
 - 대기 3·4단계 — 공공데이터 수집 + 주소 지오코딩.
   - `DATA_GO_KR_SERVICE_KEY`: **아직 비어 있음.** 이것만 있으면 3단계 시작 가능.
   - `KAKAO_REST_API_KEY`: 발급 완료. 지오코딩 호출 성공 확인함(2026-07-31).
@@ -169,12 +172,47 @@ Playwright 로 주입한 값은 내가 정한 값이라 이 가정을 검증해 
 
 - 값은 `라이트 / 다크 / 시스템` 3단이어야 한다. 2단으로 만들면 "OS를 따라간다"는
   현재 동작으로 되돌아갈 수 없다.
-- 구현은 `<html>`에 `data-theme`를 얹고 `globals.css`에
-  `[data-theme="dark"]` 블록을 `@media (prefers-color-scheme: dark)`와 **같은 값**으로
-  하나 더 두는 방식. 변수만 갈아끼우면 되므로 컴포넌트는 안 건드린다.
 - **첫 페인트 전에** 저장값을 적용해야 흰 화면이 번쩍이지 않는다
   (`layout.tsx`의 인라인 `<script>`). localStorage는 이 용도로는 써도 된다 —
   저장 금지 대상은 TMAP 경로 응답이지 화면 설정이 아니다.
+
+**착수 전 조사까지는 끝냈다 (2026-08-01). 코드는 아직 안 건드렸다.**
+
+CSS 는 원래 여기 적어 둔 "`[data-theme="dark"]` 블록을 `@media` 와 같은 값으로
+하나 더 두는" 방식 **대신 `light-dark()` 를 쓸 것.** 값을 두 벌 적으면 이 문서가
+경고한 "두 모드가 서서히 어긋난다"가 그대로 벌어진다.
+
+```css
+:root {
+  color-scheme: light dark; /* 없으면 light-dark() 가 항상 라이트로 풀린다 */
+  --surface: light-dark(#ffffff, #17211e);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+```
+
+색마다 한 줄이고 두 값이 나란히 있어 어긋날 수가 없다. `data-theme` 가 없으면
+`light dark` 라 OS 를 따라가므로 **"시스템" 이 속성 없음으로 자연히 표현된다.**
+
+Chromium 에서 6가지 조합(OS 라이트·다크 × 속성 없음·light·dark)을 전부 확인했다.
+**Tailwind 가 `bg-surface/95` 를 `color-mix(in oklab, …)` 로 바꾸는데 그 안에서도
+정상으로 풀린다** — 이게 유일한 걱정거리였고 문제 없었다.
+
+주의 — 토글 버튼의 아이콘은 SSR 때 저장값을 모른다. 인라인 스크립트는 `<html>`
+속성만 고치지 버튼 내용은 못 고치므로, 마운트 전에는 중립 아이콘을 두고 마운트
+후에 실제 값을 반영해야 hydration 불일치가 안 난다(next-themes 도 같은 방식).
+**색 자체는 스크립트가 처리하므로 번쩍이지 않는다.** 잠깐 어긋나는 건 아이콘뿐.
+
+참고 문서 — `node_modules/next/dist/docs/01-app/02-guides/preventing-flash-before-hydration.md`
+에 이 주제가 통째로 있다. `<head>` 안 `dangerouslySetInnerHTML` 스크립트 +
+`<html>` 에 `suppressHydrationWarning` 이 공식 방식이다.
+
+`viewport.themeColor` 는 지금 `prefers-color-scheme` 로만 갈리므로, 수동으로
+바꾸면 주소창 색이 안 따라온다. 범위 밖으로 두되 알고는 있을 것.
 
 **2. "주변 N곳"에 범위가 없다.** `fetch-toilets.ts`의 조건은
 `geocode_status='ok'`와 `limit(100)`뿐이고 **위치 필터가 없다.** 지금 숫자는
@@ -194,8 +232,10 @@ Playwright 로 주입한 값은 내가 정한 값이라 이 가정을 검증해 
 
 ### 다음 할 일
 
-네 건 중 **배포 지도 미표시와 위치 정확도는 끝났다.** 남은 두 건(다크 모드
-토글, 반경 표시)을 처리한 뒤 아래로 간다.
+네 건 중 **배포 지도 미표시와 위치 정확도는 끝났다.**
+
+**다크 모드 토글은 사용자가 미뤘다(2026-08-01).** 조사는 끝나 있으니 다시 할
+때는 위 절의 `light-dark()` 부분부터 읽으면 된다. 그러니 다음은 **반경 표시**다.
 
 별점(P0 5번)을 하려면 **로그인(P0 7번)이 먼저다.** `reviews.user_id`가
 `auth.users(id)` 참조에 not null이고, RLS 작성 정책이 `to authenticated` +
