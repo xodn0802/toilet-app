@@ -11,7 +11,6 @@ import {
   toiletMarkerImage,
   type MarkerState,
 } from "@/lib/map/toilet-marker";
-import { mockReviewsFor } from "@/lib/reviews/mock-reviews";
 import type { Review, ReviewDraft } from "@/lib/reviews/types";
 import { fetchWalkRoute } from "@/lib/route/fetch-walk-route";
 import type { RouteState } from "@/lib/route/state";
@@ -131,8 +130,9 @@ export default function ToiletMap() {
   const auth = useAuth();
   const signedIn = auth.status === "in";
 
-  // reviewsByToilet 은 아직 목업이다. reviews 테이블 조회·저장(P0 5번)으로
-  // 바뀌기 전까지는 새로고침하면 작성한 리뷰가 사라진다.
+  // 리뷰는 아직 어디에도 저장되지 않는다. 지금은 로그인이 막혀 폼이 잠겨 있어
+  // 늘 비어 있고, 로그인이 열리면 작성한 것이 이 state 에만 남아 새로고침하면
+  // 사라진다. reviews 테이블 조회·저장(P0 5번)이 그 자리를 대신한다.
   const [reviewsByToilet, setReviewsByToilet] = useState<
     Record<string, Review[]>
   >({});
@@ -307,13 +307,6 @@ export default function ToiletMap() {
       marker.setMap(map);
       kakao.maps.event.addListener(marker, "click", () => {
         setSelected(toilet);
-        // 목업 리뷰는 처음 열 때 한 번만 만든다. 다시 열어도 같은 목록이 보이고,
-        // 그 사이 작성한 리뷰가 지워지지 않게 이미 있는 것은 덮어쓰지 않는다.
-        setReviewsByToilet((prev) =>
-          toilet.id in prev
-            ? prev
-            : { ...prev, [toilet.id]: mockReviewsFor(toilet.id) },
-        );
         // 다른 화장실을 고르면 앞서 그린 경로는 더 이상 맞지 않으므로 지운다.
         setRouteState((prev) =>
           prev.status !== "idle" && prev.toilet.id !== toilet.id
@@ -538,12 +531,6 @@ export default function ToiletMap() {
               />
             </div>
           )}
-
-          {/*
-            화장실은 이제 공공데이터(행정안전부 공중화장실정보)다. 리뷰만 아직
-            목업이라 그 범위로 좁혀 밝힌다. P0 5번에서 실제 저장으로 바뀐다.
-          */}
-          <Notice tone="signal">리뷰는 표본 · 실제 후기가 아닙니다</Notice>
 
           {truncated && (
             <Notice tone="signal">
