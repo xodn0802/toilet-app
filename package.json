@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "collect": "tsx --env-file=.env.local scripts/collect-toilets.ts",
+    "geocode": "tsx --env-file=.env.local scripts/geocode-toilets.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.111.0",
@@ -22,6 +24,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
+    "tsx": "^4.23.5",
     "typescript": "^5"
   }
 }
