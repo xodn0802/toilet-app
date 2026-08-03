@@ -310,15 +310,36 @@ Chromium 에서 6가지 조합(OS 라이트·다크 × 속성 없음·light·dar
 | 카카오 콘솔 | 앱 설정 > 앱 키 > Redirect URI 에 `https://<ref>.supabase.co/auth/v1/callback`           |
 | 카카오 콘솔 | 같은 화면에서 **Client Secret 발급 + 활성화**                                            |
 | 카카오 콘솔 | 제품 설정 > 카카오 로그인 > **활성화 ON**                                                |
-| 카카오 콘솔 | 동의항목에 **닉네임·프로필사진만** 켠다                                                  |
+| 카카오 콘솔 | 동의항목에 **닉네임·프로필사진·이메일** 셋 다 켠다 (아래 정정 참고)                      |
+| 카카오 콘솔 | 이메일을 켜려면 **개인 개발자 비즈 앱 전환** 먼저 — 사업자등록번호는 불필요              |
 | Supabase    | Authentication > Providers > Kakao 켜고 **REST API 키 + Client Secret**                  |
 | Supabase    | 같은 화면의 **"Allow users without an email" 켜기**                                      |
 | Supabase    | URL Configuration > Site URL = 프로덕션 URL, Redirect URLs 에 `http://localhost:3000/**` |
 
-**이메일은 일부러 안 받는다.** 카카오 `account_email` 동의항목은 **비즈앱(사업자
-정보) 전환**이 있어야 쓸 수 있다. 리뷰 작성자 구분에는 Supabase 가 발급하는
-`user_id`(uuid)면 충분하고 P0 에 이메일을 쓸 데가 없다. 그래서 Supabase 쪽에
-"이메일 없는 사용자 허용"을 켜야 한다 — 안 켜면 가입 자체가 실패한다.
+**이메일을 안 받는 선택지는 없다 (2026-08-03 정정).** 설계 때 "P0 에 이메일을 쓸
+데가 없으니 `account_email` 을 요청하지 않는다"고 정했는데 **그렇게 할 수가 없다.**
+Supabase 의 카카오 provider 는 스코프 세 개를 하드코딩해 두고 우리가 준 값을
+**덧붙이기만 한다.** 빼는 수단이 아예 없다. 실측:
+
+```
+요청: /auth/v1/authorize?provider=kakao&scopes=profile_nickname
+결과: scope=account_email+profile_image+profile_nickname+profile_nickname
+```
+
+그래서 `signInWithOAuth` 의 `options.scopes` 로는 **못 고친다.** 코드가 아니라
+카카오 콘솔에서 세 항목을 전부 켜는 것이 유일한 길이다.
+
+- `profile_nickname` · `profile_image` — 기본 제공. 바로 켤 수 있다.
+- `account_email` — **비즈 앱 전환이 필요하다.** 사업자등록번호는 없어도 된다.
+  앱 설정 > 일반 > 비즈니스 정보 > **개인 개발자 비즈 앱** 에서 본인인증 +
+  카카오비즈니스 약관 동의로 전환된다. 전환 후 동의항목에 이메일이 열린다.
+  **선택 동의로 켤 것** — 필수로 하면 거부한 사람은 가입 자체를 못 한다.
+
+Supabase 의 **"Allow users without an email" 은 그대로 켜 둔다.** 선택 동의를
+거부하고 온 사용자를 받으려면 여전히 필요하다.
+
+리뷰 작성자 구분에는 `user_id`(uuid)면 충분하다 — 이메일은 받아 두기만 하고
+쓰지 않는다. 스키마에도 넣지 말 것.
 
 **Vercel 환경변수는 추가 없다.** 이미 있는 `NEXT_PUBLIC_SUPABASE_*` 두 개로 끝.
 
@@ -326,6 +347,20 @@ Chromium 에서 6가지 조합(OS 라이트·다크 × 속성 없음·light·dar
 날 JSON 이 뜬다 — `{"code":400,"error_code":"validation_failed","msg":
 "Unsupported provider: provider is not enabled"}`. 이때는 **앱으로 돌아오지 않아서
 우리 에러 안내가 뜰 기회조차 없다.** 설정을 끝내면 사라지는 증상이다.
+
+**두 증상을 구별할 것.** 어디까지 갔는지가 주소창에 그대로 나온다.
+
+| 화면                   | 멈춘 곳           | 뜻                                       |
+| ---------------------- | ----------------- | ---------------------------------------- |
+| 위의 날 JSON           | `*.supabase.co`   | Supabase 에 카카오 provider 가 꺼져 있다 |
+| `잘못된 요청 (KOE205)` | `kauth.kakao.com` | 카카오 동의항목이 안 켜져 있다           |
+
+KOE205 는 **"설정하지 않은 동의 항목"을 그 화면이 직접 이름으로 알려준다.**
+그 목록을 보고 카카오 콘솔에서 그 항목만 켜면 된다. 진단 도구가 따로 필요 없다.
+
+설정을 바꾼 뒤 브라우저 없이 검사하려면 authorize 의 리디렉트를 보면 된다 —
+`curl -s -i "https://<ref>.supabase.co/auth/v1/authorize?provider=kakao&redirect_to=<앱주소>"`
+의 `location:` 헤더에 카카오로 보내는 `scope` 가 그대로 들어 있다.
 
 **확인한 것과 못 한 것.** 빌드·린트·타입 통과. Playwright 로 로그아웃 상태 앱바
 (로그인 버튼 보임, 콘솔 에러 0)와 버튼이 실제로
