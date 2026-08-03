@@ -12,6 +12,8 @@ declare namespace kakao.maps {
 
   class LatLng {
     constructor(lat: number, lng: number);
+    getLat(): number;
+    getLng(): number;
   }
 
   interface MapOptions {
@@ -24,11 +26,17 @@ declare namespace kakao.maps {
     constructor();
     /** 주어진 좌표를 포함하도록 영역을 넓힌다. */
     extend(latlng: LatLng): void;
+    /** 남서쪽 모서리 = (최소 위도, 최소 경도). */
+    getSouthWest(): LatLng;
+    /** 북동쪽 모서리 = (최대 위도, 최대 경도). */
+    getNorthEast(): LatLng;
   }
 
   class Map {
     constructor(container: HTMLElement, options: MapOptions);
     setCenter(latlng: LatLng): void;
+    /** 지금 화면에 보이는 영역. bbox 조회의 기준이다. */
+    getBounds(): LatLngBounds;
     setLevel(level: number): void;
     /** 영역이 화면에 들어오도록 중심·확대를 맞춘다. 여백은 px 단위. */
     setBounds(

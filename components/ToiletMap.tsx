@@ -4,6 +4,7 @@ import Script from "next/script";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth/use-auth";
+import { boundsAround, sameBounds, type Bounds } from "@/lib/geo/bounds";
 import { straightLineDistance } from "@/lib/geo/distance";
 import {
   MARKER_Z,
@@ -16,7 +17,11 @@ import { fetchWalkRoute } from "@/lib/route/fetch-walk-route";
 import type { RouteState } from "@/lib/route/state";
 import { formatDistance } from "@/lib/route/types";
 import { fetchToilets } from "@/lib/toilets/fetch-toilets";
-import { nearbyLabel, summarizeNearby } from "@/lib/toilets/nearby";
+import {
+  NEARBY_RADIUS_M,
+  nearbyLabel,
+  summarizeNearby,
+} from "@/lib/toilets/nearby";
 import { isMappable, type MappableToilet } from "@/lib/toilets/types";
 
 import AppBar from "./AppBar";
@@ -63,6 +68,19 @@ const LOCATION_MESSAGE: Record<LocationState, string | null> = {
   denied: "위치를 못 받아 인하대학교 기준으로 보여줍니다",
 };
 
+/** 지도가 지금 보고 있는 영역. */
+function readBounds(map: kakao.maps.Map): Bounds {
+  const bounds = map.getBounds();
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+  return {
+    minLat: sw.getLat(),
+    maxLat: ne.getLat(),
+    minLng: sw.getLng(),
+    maxLng: ne.getLng(),
+  };
+}
+
 /** 지도 위에 얹는 작은 안내. 배경이 지도라 항상 면을 깔고 그 위에 글씨를 둔다. */
 function Notice({
   tone = "muted",
@@ -105,6 +123,10 @@ export default function ToiletMap() {
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [routeState, setRouteState] = useState<RouteState>({ status: "idle" });
   const [toiletsError, setToiletsError] = useState<string | null>(null);
+  /** 지도가 보고 있는 영역. 지도가 생기기 전에는 null 이라 조회를 미룬다. */
+  const [viewport, setViewport] = useState<Bounds | null>(null);
+  /** 조회 상한에 걸려 일부만 왔는지. 확대를 권해야 한다. */
+  const [truncated, setTruncated] = useState(false);
 
   const auth = useAuth();
   const signedIn = auth.status === "in";
@@ -137,12 +159,28 @@ export default function ToiletMap() {
     [toilets, center, anchored],
   );
 
+  /**
+   * 반경 판정에 쓰는 영역. 조회에서 이 안이 빠지면 앱바의 "1km 이내"가 틀린다.
+   * 기준점을 못 믿는 동안에는 null 이라 지도가 보는 곳만 조회한다.
+   */
+  const anchorBounds = useMemo(
+    () => (anchored ? boundsAround(center, NEARBY_RADIUS_M) : null),
+    [anchored, center],
+  );
+
   // 화장실 목록. Supabase 의 toilets 에서 좌표가 확보된 행만 가져온다.
   useEffect(() => {
+    if (!viewport) return;
+
     let cancelled = false;
-    fetchToilets()
-      .then((rows) => {
-        if (!cancelled) setToilets(rows.filter(isMappable));
+    fetchToilets(viewport, anchorBounds)
+      .then((page) => {
+        if (cancelled) return;
+        setToilets(page.toilets.filter(isMappable));
+        setTruncated(page.truncated);
+        // 다시 성공했으면 지난 실패 안내는 치운다. 조회가 반복되기 때문에
+        // 남겨 두면 이미 해결된 오류를 계속 보여주게 된다.
+        setToiletsError(null);
       })
       // 실패를 삼키면 지도가 아무 설명 없이 텅 빈 상태가 돼 원인을 찾기 어렵다.
       .catch((error: unknown) => {
@@ -157,7 +195,7 @@ export default function ToiletMap() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [viewport, anchorBounds]);
 
   // 현재 위치. 거부·실패해도 기본 중심으로 지도는 그대로 뜬다.
   useEffect(() => {
@@ -178,10 +216,23 @@ export default function ToiletMap() {
   // 지도 생성. mapRef 가 채워져 있으면 다시 만들지 않는다.
   useEffect(() => {
     if (!sdkReady || !containerRef.current || mapRef.current) return;
-    mapRef.current = new kakao.maps.Map(containerRef.current, {
+    const map = new kakao.maps.Map(containerRef.current, {
       center: new kakao.maps.LatLng(center.lat, center.lng),
       level: DEFAULT_LEVEL,
     });
+    mapRef.current = map;
+
+    // 보고 있는 영역이 바뀌면 그 영역의 화장실을 다시 조회한다. idle 은 이동·
+    // 확대가 **끝난 뒤에만** 오므로 드래그하는 내내 조회가 연타되지 않는다.
+    // 같은 영역이면 이전 객체를 그대로 둬서 조회까지 가지 않게 한다.
+    const syncViewport = () =>
+      setViewport((prev) => {
+        const next = readBounds(map);
+        return sameBounds(prev, next) ? prev : next;
+      });
+
+    syncViewport();
+    kakao.maps.event.addListener(map, "idle", syncViewport);
   }, [sdkReady, center]);
 
   // 위치를 나중에 받아왔을 때 중심을 옮긴다.
@@ -488,8 +539,17 @@ export default function ToiletMap() {
             </div>
           )}
 
-          {/* 실제 정보가 아님을 밝힌다. 화장실은 3·4단계, 리뷰는 P0 5번에서 실제로 바뀐다. */}
-          <Notice tone="signal">표본 데이터 · 실제 정보가 아닙니다</Notice>
+          {/*
+            화장실은 이제 공공데이터(행정안전부 공중화장실정보)다. 리뷰만 아직
+            목업이라 그 범위로 좁혀 밝힌다. P0 5번에서 실제 저장으로 바뀐다.
+          */}
+          <Notice tone="signal">리뷰는 표본 · 실제 후기가 아닙니다</Notice>
+
+          {truncated && (
+            <Notice tone="signal">
+              이 범위에는 화장실이 너무 많습니다 · 확대해서 보세요
+            </Notice>
+          )}
 
           {toiletsError && <Notice tone="error">{toiletsError}</Notice>}
           {auth.error && <Notice tone="error">{auth.error}</Notice>}
