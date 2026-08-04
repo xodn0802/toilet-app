@@ -35,6 +35,8 @@ declare namespace kakao.maps {
   class Map {
     constructor(container: HTMLElement, options: MapOptions);
     setCenter(latlng: LatLng): void;
+    /** 지금 화면 한가운데 좌표. 위치 지정 핀이 가리키는 지점이다. */
+    getCenter(): LatLng;
     /** 지금 화면에 보이는 영역. bbox 조회의 기준이다. */
     getBounds(): LatLngBounds;
     setLevel(level: number): void;
@@ -131,6 +133,31 @@ declare namespace kakao.maps {
       type: string,
       handler: () => void,
     ): void;
+  }
+
+  /** SDK URL 에 `&libraries=services` 를 붙여야 로드된다. */
+  namespace services {
+    enum Status {
+      OK = "OK",
+      ZERO_RESULT = "ZERO_RESULT",
+      ERROR = "ERROR",
+    }
+
+    interface Coord2AddressResult {
+      /** 지번주소. */
+      address: { address_name: string } | null;
+      /** 도로명주소. **건물이 없는 좌표에서는 null 이다.** */
+      road_address: { address_name: string } | null;
+    }
+
+    class Geocoder {
+      /** 좌표 → 주소. **경도가 먼저다.** */
+      coord2Address(
+        lng: number,
+        lat: number,
+        callback: (result: Coord2AddressResult[], status: Status) => void,
+      ): void;
+    }
   }
 }
 

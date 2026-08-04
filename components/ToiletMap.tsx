@@ -471,7 +471,9 @@ export default function ToiletMap() {
     <>
       <Script
         id="kakao-maps-sdk"
-        src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`}
+        // libraries=services 는 역지오코딩(Geocoder)용이다. 안 붙이면
+        // kakao.maps.services 가 undefined 라 위치 지정 화면이 주소를 못 읽는다.
+        src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&libraries=services&autoload=false`}
         onReady={handleSdkReady}
         onError={() => setSdkFailed(true)}
       />
