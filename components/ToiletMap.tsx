@@ -23,6 +23,7 @@ import {
 } from "@/lib/toilets/nearby";
 import { isMappable, type MappableToilet } from "@/lib/toilets/types";
 
+import AddToilet from "./AddToilet";
 import AppBar from "./AppBar";
 import RouteBanner from "./RouteBanner";
 import ToiletDetailSheet from "./ToiletDetailSheet";
@@ -113,6 +114,13 @@ export default function ToiletMap() {
 
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkFailed, setSdkFailed] = useState(false);
+  /**
+   * 지도 객체를 state 로도 들고 있는다.
+   *
+   * AddToilet 이 getCenter() 와 idle 리스너를 붙여야 하는데, ref 는 채워져도
+   * 리렌더를 일으키지 않아 자식에게 전달되는 시점을 만들 수 없다.
+   */
+  const [mapInstance, setMapInstance] = useState<kakao.maps.Map | null>(null);
   /** null 은 "아직 안 불러옴". 0곳과 구분해야 앱바에 로딩을 표시할 수 있다. */
   const [toilets, setToilets] = useState<MappableToilet[] | null>(null);
   const [selected, setSelected] = useState<MappableToilet | null>(null);
@@ -126,6 +134,20 @@ export default function ToiletMap() {
   const [viewport, setViewport] = useState<Bounds | null>(null);
   /** 조회 상한에 걸려 일부만 왔는지. 확대를 권해야 한다. */
   const [truncated, setTruncated] = useState(false);
+  /** 화장실 추가 모드. 켜져 있으면 지도를 위치 고르는 데 쓴다. */
+  const [addOpen, setAddOpen] = useState(false);
+
+  /**
+   * 마커 클릭 리스너가 읽는 addOpen.
+   *
+   * 리스너는 마커를 만들 때 state 를 클로저에 가두므로 addOpen 을 직접 읽으면
+   * 항상 처음 값(false)이다. 위치를 고르는 중에 마커를 눌러 상세 시트가 뜨면
+   * 두 화면이 겹친다.
+   */
+  const addOpenRef = useRef(false);
+  useEffect(() => {
+    addOpenRef.current = addOpen;
+  }, [addOpen]);
 
   const auth = useAuth();
   const signedIn = auth.status === "in";
@@ -221,6 +243,7 @@ export default function ToiletMap() {
       level: DEFAULT_LEVEL,
     });
     mapRef.current = map;
+    setMapInstance(map);
 
     // 보고 있는 영역이 바뀌면 그 영역의 화장실을 다시 조회한다. idle 은 이동·
     // 확대가 **끝난 뒤에만** 오므로 드래그하는 내내 조회가 연타되지 않는다.
@@ -306,6 +329,9 @@ export default function ToiletMap() {
       });
       marker.setMap(map);
       kakao.maps.event.addListener(marker, "click", () => {
+        // 위치를 고르는 중에는 지도가 "어디에 둘지"를 묻는 화면이다. 여기서
+        // 상세 시트가 뜨면 두 화면이 겹친다.
+        if (addOpenRef.current) return;
         setSelected(toilet);
         // 다른 화장실을 고르면 앞서 그린 경로는 더 이상 맞지 않으므로 지운다.
         setRouteState((prev) =>
@@ -549,29 +575,83 @@ export default function ToiletMap() {
           )}
         </div>
 
-        {/* 지도를 끌고 다니다 돌아올 길. 시트가 열리면 그 위로 비켜선다. */}
-        <button
-          type="button"
-          onClick={handleRecenter}
-          disabled={!sdkReady || locationState !== "granted"}
-          aria-label="현재 위치로 이동"
-          className={`absolute right-4 z-10 grid h-12 w-12 place-items-center rounded-full bg-surface text-brand shadow-[0_2px_12px_rgba(20,35,31,0.18)] transition-[bottom] duration-300 ease-out hover:bg-sunken disabled:text-muted ${
-            selected ? "bottom-60" : "bottom-6"
-          }`}
-        >
-          <svg
-            aria-hidden
-            viewBox="0 0 24 24"
-            className="h-[22px] w-[22px]"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
+        {/*
+          지도 위 버튼들. 시트가 열리면 그 위로 비켜선다 — 위치 계산이 하나면
+          되도록 버튼마다 두지 않고 이 컨테이너에만 둔다.
+
+          추가 모드에서는 통째로 감춘다. 그때 지도는 "어디에 둘지"를 묻는
+          화면이라 여기서 할 수 있는 일이 없고, 아래 패널과 겹치기만 한다.
+        */}
+        {!addOpen && (
+          <div
+            className={`absolute right-4 z-10 flex flex-col gap-3 transition-[bottom] duration-300 ease-out ${
+              selected ? "bottom-60" : "bottom-6"
+            }`}
           >
-            <circle cx="12" cy="12" r="7" />
-            <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
-            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" strokeLinecap="round" />
-          </svg>
-        </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAddOpen(true);
+                // 상세 시트가 열린 채로 두면 아래에서 두 시트가 겹친다.
+                setSelected(null);
+              }}
+              disabled={!sdkReady}
+              aria-label="화장실 추가"
+              className="grid h-12 w-12 place-items-center rounded-full bg-brand text-brand-ink shadow-[0_2px_12px_rgba(20,35,31,0.18)] hover:bg-brand-strong disabled:bg-surface disabled:text-muted"
+            >
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+
+            {/* 지도를 끌고 다니다 돌아올 길. */}
+            <button
+              type="button"
+              onClick={handleRecenter}
+              disabled={!sdkReady || locationState !== "granted"}
+              aria-label="현재 위치로 이동"
+              className="grid h-12 w-12 place-items-center rounded-full bg-surface text-brand shadow-[0_2px_12px_rgba(20,35,31,0.18)] hover:bg-sunken disabled:text-muted"
+            >
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-[22px] w-[22px]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <circle cx="12" cy="12" r="7" />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="2.6"
+                  fill="currentColor"
+                  stroke="none"
+                />
+                <path
+                  d="M12 2v3M12 19v3M2 12h3M19 12h3"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {addOpen && mapInstance && (
+          <AddToilet
+            map={mapInstance}
+            toilets={toilets ?? []}
+            onClose={() => setAddOpen(false)}
+          />
+        )}
 
         {selected && (
           // key 를 주면 다른 화장실을 고를 때 시트가 새로 마운트된다.

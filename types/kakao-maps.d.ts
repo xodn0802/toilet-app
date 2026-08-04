@@ -133,6 +133,12 @@ declare namespace kakao.maps {
       type: string,
       handler: () => void,
     ): void;
+    /** 같은 handler 참조를 넘겨야 떨어진다. */
+    function removeListener(
+      target: object,
+      type: string,
+      handler: () => void,
+    ): void;
   }
 
   /** SDK URL 에 `&libraries=services` 를 붙여야 로드된다. */
