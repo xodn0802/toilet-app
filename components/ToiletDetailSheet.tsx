@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import type { ReviewGate } from "@/lib/reviews/eligibility";
 import {
   formatDistance,
   formatDuration,
@@ -27,10 +28,11 @@ type Props = {
   canNavigate: boolean;
   /** 현재 위치에서의 직선거리(m). 위치를 못 받았으면 null. */
   distanceMeters: number | null;
-  reviews: Review[];
-  signedIn: boolean;
-  onSignIn: () => void;
-  onSubmitReview: (draft: ReviewDraft) => void;
+  /** 이 화장실의 리뷰. 아직 조회 중이면 undefined. */
+  reviews: Review[] | undefined;
+  /** 리뷰를 쓸 수 있는 상태인지. 판정은 lib/reviews/eligibility.ts 가 한다. */
+  gate: ReviewGate;
+  onSubmitReview: (draft: ReviewDraft) => Promise<void>;
   onNavigate: () => void;
   onClose: () => void;
 };
@@ -42,8 +44,7 @@ export default function ToiletDetailSheet({
   canNavigate,
   distanceMeters,
   reviews,
-  signedIn,
-  onSignIn,
+  gate,
   onSubmitReview,
   onNavigate,
   onClose,
@@ -51,7 +52,10 @@ export default function ToiletDetailSheet({
   // 접힌 상태에서는 지도가 계속 보인다. 급할 때는 여기까지만 보고 길찾기를 누른다.
   const [expanded, setExpanded] = useState(false);
 
-  const average = averageCleanliness(reviews);
+  // 조회 중에는 "리뷰 없음"이라고 단정하지 않는다. 잠깐 그렇게 떴다가 숫자가
+  // 바뀌면 어느 쪽이 맞는지 알 수 없다.
+  const loaded = reviews ?? [];
+  const average = averageCleanliness(loaded);
 
   // 길찾기를 하고 나면 실제 도보 거리를 알게 되므로 직선거리는 물러난다.
   const distanceLabel = route
@@ -87,7 +91,9 @@ export default function ToiletDetailSheet({
             </div>
 
             <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted">
-              {average === null ? (
+              {reviews === undefined ? (
+                <span>리뷰 불러오는 중…</span>
+              ) : average === null ? (
                 <span>리뷰 없음</span>
               ) : (
                 <>
@@ -97,7 +103,7 @@ export default function ToiletDetailSheet({
                   <span className="font-medium text-ink">
                     {average.toFixed(1)}
                   </span>
-                  <span>({reviews.length})</span>
+                  <span>({loaded.length})</span>
                 </>
               )}
               {distanceLabel && (
@@ -156,17 +162,13 @@ export default function ToiletDetailSheet({
           expanded ? "overflow-y-auto overscroll-contain" : "overflow-hidden"
         }`}
       >
-        <ToiletFacts toilet={toilet} reviews={reviews} />
+        <ToiletFacts toilet={toilet} reviews={loaded} />
 
-        <ReviewForm
-          signedIn={signedIn}
-          onSignIn={onSignIn}
-          onSubmit={onSubmitReview}
-        />
+        <ReviewForm gate={gate} onSubmit={onSubmitReview} />
 
         <section className="mt-6">
-          <h3 className="text-sm font-semibold">리뷰 {reviews.length}</h3>
-          <ReviewList reviews={reviews} />
+          <h3 className="text-sm font-semibold">리뷰 {loaded.length}</h3>
+          <ReviewList reviews={loaded} />
         </section>
       </div>
 

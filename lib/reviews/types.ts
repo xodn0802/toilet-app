@@ -1,9 +1,13 @@
 /**
  * 리뷰 타입과 표시용 유틸.
  *
- * reviews 테이블(supabase/migrations/0001_init.sql)에 필드명을 맞춰 두었다.
- * 다만 nickname·photos 는 아직 그 테이블에 없다 — 백엔드를 붙일 때 각각
- * 작성자 프로필 조인과 review_photos 조회로 채운다.
+ * reviews 테이블에 필드명을 그대로 맞춰 두었다 — 조회 결과가 변환 없이 이 타입이
+ * 된다. nickname 은 0003_reviews_anonymous.sql 에서 컬럼으로 추가했다(작성자
+ * 프로필을 따로 두지 않고 행에 박는 이유는 그 마이그레이션 주석 참고).
+ *
+ * 사진은 아직 없다. review_photos 테이블과 Storage 는 P0 6번에서 신고·삭제
+ * 절차와 함께 붙인다 — 익명 신원으로 사진을 받으면 부적절한 이미지를 올린
+ * 사람을 추적할 방법이 없다(idea.md 유의사항 ①).
  */
 
 export type ReviewTag =
@@ -27,26 +31,20 @@ export const REVIEW_TAGS: { value: ReviewTag; label: string; emoji: string }[] =
 export type Review = {
   id: string;
   toilet_id: string;
+  /** 작성자. "이 화장실에 내가 이미 썼는지" 판정에 쓴다. */
+  user_id: string;
   nickname: string;
   /** 1~5. */
   cleanliness: number;
   tags: ReviewTag[];
   comment: string | null;
-  /** 화면에 바로 넣을 수 있는 이미지 URL. */
-  photos: string[];
   created_at: string;
 };
 
 /** 폼이 만들어 넘기는 값. id·작성자·시각은 저장하는 쪽이 채운다. */
-export type ReviewDraft = Pick<
-  Review,
-  "cleanliness" | "tags" | "comment" | "photos"
->;
+export type ReviewDraft = Pick<Review, "cleanliness" | "tags" | "comment">;
 
 export const MAX_COMMENT_LENGTH = 500;
-
-/** README P0-6 은 5장이지만, 급할 때 올리는 사진이라 3장이면 충분하다. */
-export const MAX_PHOTOS = 3;
 
 /** 리뷰가 없으면 평균이 정의되지 않는다. 0.0 으로 보여주면 "더럽다"로 읽힌다. */
 export function averageCleanliness(reviews: Review[]): number | null {

@@ -59,22 +59,6 @@ export default function ReviewList({ reviews }: { reviews: Review[] }) {
               ))}
             </ul>
           )}
-
-          {review.photos.length > 0 && (
-            <ul className="mt-2 flex gap-2">
-              {review.photos.map((photo) => (
-                <li key={photo}>
-                  {/* blob: URL 이라 next/image 최적화를 태울 수 없다. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={photo}
-                    alt=""
-                    className="h-20 w-20 rounded-lg object-cover"
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
         </li>
       ))}
     </ul>

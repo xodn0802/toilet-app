@@ -3,7 +3,7 @@
 import Script from "next/script";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useAuth } from "@/lib/auth/use-auth";
+import { useIdentity } from "@/lib/auth/use-identity";
 import { boundsAround, sameBounds, type Bounds } from "@/lib/geo/bounds";
 import { straightLineDistance } from "@/lib/geo/distance";
 import {
@@ -11,6 +11,9 @@ import {
   toiletMarkerImage,
   type MarkerState,
 } from "@/lib/map/toilet-marker";
+import { reviewGate } from "@/lib/reviews/eligibility";
+import { fetchReviews } from "@/lib/reviews/fetch-reviews";
+import { submitReview } from "@/lib/reviews/submit-review";
 import type { Review, ReviewDraft } from "@/lib/reviews/types";
 import { fetchWalkRoute } from "@/lib/route/fetch-walk-route";
 import type { RouteState } from "@/lib/route/state";
@@ -149,15 +152,31 @@ export default function ToiletMap() {
     addOpenRef.current = addOpen;
   }, [addOpen]);
 
-  const auth = useAuth();
-  const signedIn = auth.status === "in";
+  const identity = useIdentity();
 
-  // 리뷰는 아직 어디에도 저장되지 않는다. 지금은 로그인이 막혀 폼이 잠겨 있어
-  // 늘 비어 있고, 로그인이 열리면 작성한 것이 이 state 에만 남아 새로고침하면
-  // 사라진다. reviews 테이블 조회·저장(P0 5번)이 그 자리를 대신한다.
+  /**
+   * 화장실별 리뷰. 값이 **없는 것(undefined)이 "아직 조회 중"** 이고, 빈 배열이
+   * "리뷰가 없음"이다. 둘을 같게 두면 시트가 열리자마자 "리뷰 없음"이라고
+   * 단정했다가 곧 숫자가 바뀐다.
+   *
+   * 선택한 화장실 것만 채운다. 목록 전체를 미리 받아 봐야 마커에는 안 쓴다.
+   */
   const [reviewsByToilet, setReviewsByToilet] = useState<
-    Record<string, Review[]>
+    Record<string, Review[] | undefined>
   >({});
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+
+  /**
+   * 조회 effect 가 읽는 reviewsByToilet.
+   *
+   * state 를 의존성에 넣으면 리뷰를 하나 등록할 때마다 effect 가 다시 돌아
+   * 방금 얹은 리뷰를 조회 결과로 덮어쓴다. "이미 받아 왔는지"만 보면 되므로
+   * ref 로 읽는다(addOpenRef 와 같은 이유).
+   */
+  const reviewsRef = useRef(reviewsByToilet);
+  useEffect(() => {
+    reviewsRef.current = reviewsByToilet;
+  }, [reviewsByToilet]);
 
   const handleSdkReady = useCallback(() => {
     // autoload=false 로 불러왔으므로 직접 초기화해야 한다.
@@ -218,6 +237,35 @@ export default function ToiletMap() {
       cancelled = true;
     };
   }, [viewport, anchorBounds]);
+
+  // 선택한 화장실의 리뷰. 한 번 받아 오면 그대로 둔다 — 시트를 여닫을 때마다
+  // 다시 부르면 "불러오는 중"이 반복해서 깜빡이고, 그동안 리뷰 폼이 잠긴다.
+  const selectedId = selected?.id ?? null;
+  useEffect(() => {
+    if (!selectedId || reviewsRef.current[selectedId] !== undefined) return;
+
+    let cancelled = false;
+    fetchReviews(selectedId)
+      .then((rows) => {
+        if (cancelled) return;
+        setReviewsByToilet((prev) => ({ ...prev, [selectedId]: rows }));
+        setReviewsError(null);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        // 빈 배열로 두는 이유: undefined 로 남기면 화면이 영영 "불러오는 중"이고
+        // 리뷰 폼도 계속 잠겨 있다. 실패는 안내로 말하고 화면은 풀어 준다.
+        setReviewsByToilet((prev) => ({ ...prev, [selectedId]: [] }));
+        setReviewsError(
+          error instanceof Error
+            ? error.message
+            : "리뷰를 불러오지 못했습니다.",
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
 
   // 현재 위치. 거부·실패해도 기본 중심으로 지도는 그대로 뜬다.
   useEffect(() => {
@@ -423,24 +471,29 @@ export default function ToiletMap() {
   }, [selected, center, locationState]);
 
   const handleSubmitReview = useCallback(
-    (draft: ReviewDraft) => {
+    async (draft: ReviewDraft) => {
       const toilet = selected;
       if (!toilet) return;
 
-      const review: Review = {
-        id: `local-${Date.now()}`,
-        toilet_id: toilet.id,
-        nickname: "나",
-        created_at: new Date().toISOString(),
-        ...draft,
-      };
+      // 신원은 **여기서 처음** 만들어진다. 지도를 보기만 한 사람에게 계정을
+      // 발급하지 않으려는 것이다.
+      const who = await identity.ensure();
 
+      const review = await submitReview({
+        ...draft,
+        toilet_id: toilet.id,
+        user_id: who.userId,
+        nickname: who.nickname,
+      });
+
+      // 돌려받은 행을 그대로 얹는다. 다시 조회하면 왕복이 한 번 더 생기는데,
+      // 방금 쓴 사람에게는 바로 보이는 편이 낫다.
       setReviewsByToilet((prev) => ({
         ...prev,
         [toilet.id]: [review, ...(prev[toilet.id] ?? [])],
       }));
     },
-    [selected],
+    [selected, identity],
   );
 
   // 지도를 끌고 다닌 뒤 돌아오는 길. center 는 그대로라 위의 effect 로는 안 되고,
@@ -482,6 +535,17 @@ export default function ToiletMap() {
   // 세 자리로 적으면 없는 정밀도를 있는 것처럼 말하게 된다.
   const selectedDistance =
     selected && anchored ? straightLineDistance(center, selected) : null;
+
+  // 리뷰를 쓸 수 있는 상태인지. 거리 기준점은 위와 같은 anchored 를 본다 —
+  // 못 믿는 좌표로 "멀어서 못 쓴다"고 막으면 이유 없이 막는 것이 된다.
+  const selectedGate = selected
+    ? reviewGate({
+        origin: anchored ? center : null,
+        toilet: selected,
+        reviews: reviewsByToilet[selected.id],
+        userId: identity.who?.userId ?? null,
+      })
+    : ({ kind: "loading" } as const);
 
   if (!KAKAO_APP_KEY) {
     return (
@@ -542,13 +606,7 @@ export default function ToiletMap() {
           하나의 컨테이너에 모으고, 눌러야 하는 것에만 pointer-events 를 준다.
         */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-start gap-2 p-3">
-          <AppBar
-            label={toilets === null ? null : nearbyLabel(summary)}
-            auth={auth.status}
-            nickname={auth.nickname}
-            onSignIn={auth.signIn}
-            onSignOut={auth.signOut}
-          />
+          <AppBar label={toilets === null ? null : nearbyLabel(summary)} />
 
           {routeState.status !== "idle" && (
             <div className="pointer-events-auto w-full">
@@ -567,7 +625,7 @@ export default function ToiletMap() {
           )}
 
           {toiletsError && <Notice tone="error">{toiletsError}</Notice>}
-          {auth.error && <Notice tone="error">{auth.error}</Notice>}
+          {reviewsError && <Notice tone="error">{reviewsError}</Notice>}
           {locationMessage && (
             <Notice tone={locationCoarse ? "signal" : "muted"}>
               {locationMessage}
@@ -663,9 +721,8 @@ export default function ToiletMap() {
             loading={selectedLoading}
             canNavigate={locationState === "granted"}
             distanceMeters={selectedDistance}
-            reviews={reviewsByToilet[selected.id] ?? []}
-            signedIn={signedIn}
-            onSignIn={auth.signIn}
+            reviews={reviewsByToilet[selected.id]}
+            gate={selectedGate}
             onSubmitReview={handleSubmitReview}
             onNavigate={handleNavigate}
             onClose={() => setSelected(null)}

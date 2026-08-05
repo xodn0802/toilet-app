@@ -1,7 +1,3 @@
-"use client";
-
-import type { AuthStatus } from "@/lib/auth/use-auth";
-
 type Props = {
   /**
    * 화장실이 몇 곳인지 알리는 문구. 아직 못 불러왔으면 null.
@@ -11,26 +7,15 @@ type Props = {
    * 조립은 lib/toilets/nearby.ts 의 nearbyLabel 이 한다.
    */
   label: string | null;
-  /**
-   * 불리언 대신 세 값을 받는 이유는 "아직 모름"이 있기 때문이다. 저장된 세션을
-   * 읽는 건 비동기라, 모름을 로그아웃으로 치면 로그인 버튼이 떴다가 사라진다.
-   */
-  auth: AuthStatus;
-  /** 카카오 닉네임. 동의를 거부했을 수 있어 로그인 상태여도 null 일 수 있다. */
-  nickname: string | null;
-  onSignIn: () => void;
-  onSignOut: () => void;
 };
 
-export default function AppBar({
-  label,
-  auth,
-  nickname,
-  onSignIn,
-  onSignOut,
-}: Props) {
+/**
+ * 로그인 버튼이 없다. 신원은 리뷰를 등록하는 순간 조용히 만들어지므로
+ * (lib/auth/use-identity.ts) 사용자가 로그인을 의식할 자리가 없다.
+ */
+export default function AppBar({ label }: Props) {
   return (
-    <header className="pointer-events-auto flex w-full items-center gap-3 rounded-2xl bg-surface/95 py-2 pr-2 pl-4 shadow-[0_2px_16px_rgba(20,35,31,0.16)] backdrop-blur-sm">
+    <header className="pointer-events-auto flex w-full items-center rounded-2xl bg-surface/95 px-4 py-2.5 shadow-[0_2px_16px_rgba(20,35,31,0.16)] backdrop-blur-sm">
       <p className="flex min-w-0 items-baseline gap-2">
         <span className="font-wordmark text-2xl leading-none text-brand">
           뿡
@@ -40,38 +25,6 @@ export default function AppBar({
           {label ?? "불러오는 중…"}
         </span>
       </p>
-
-      {auth === "loading" ? (
-        // 자리만 잡아 둔다. 비워 두면 버튼이 나타날 때 앱바 높이가 튄다.
-        <span aria-hidden className="ml-auto h-9 w-9 shrink-0" />
-      ) : auth === "in" ? (
-        <button
-          type="button"
-          onClick={onSignOut}
-          aria-label={`${nickname ?? "내 계정"} · 로그아웃`}
-          className="ml-auto flex min-w-0 items-center gap-2 rounded-full py-1 pr-3 pl-1 hover:bg-sunken"
-        >
-          <span
-            aria-hidden
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand text-xs font-bold text-brand-ink"
-          >
-            {nickname?.[0] ?? "나"}
-          </span>
-          {/* 닉네임을 보여야 "내 계정으로 들어왔다"를 눈으로 확인할 수 있다. */}
-          {nickname && (
-            <span className="max-w-20 truncate text-sm">{nickname}</span>
-          )}
-          <span className="shrink-0 text-sm text-muted">로그아웃</span>
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={onSignIn}
-          className="ml-auto shrink-0 rounded-full border border-line px-4 py-2 text-sm font-medium hover:bg-sunken"
-        >
-          로그인
-        </button>
-      )}
     </header>
   );
 }
