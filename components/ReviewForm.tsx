@@ -15,6 +15,8 @@ import StarRating from "./StarRating";
 type Props = {
   /** 쓸 수 있는 상태인지. 막혀 있으면 그 이유가 버튼에 그대로 나온다. */
   gate: ReviewGate;
+  /** 이 브라우저의 별명. 아직 신원이 없으면 null. */
+  nickname: string | null;
   /** 저장에 실패하면 던진다. 폼이 그 메시지를 보여주고 내용은 그대로 둔다. */
   onSubmit: (draft: ReviewDraft) => Promise<void>;
 };
@@ -23,7 +25,7 @@ type Props = {
  * 로그인 절차가 없다. 신원은 등록을 누르는 순간 만들어지므로
  * (lib/auth/use-identity.ts) 폼이 잠겨 있을 이유가 없다.
  */
-export default function ReviewForm({ gate, onSubmit }: Props) {
+export default function ReviewForm({ gate, nickname, onSubmit }: Props) {
   const [cleanliness, setCleanliness] = useState(0);
   const [tags, setTags] = useState<ReviewTag[]>([]);
   const [comment, setComment] = useState("");
@@ -144,9 +146,15 @@ export default function ReviewForm({ gate, onSubmit }: Props) {
           {buttonLabel}
         </button>
 
-        {/* 익명이라는 사실은 숨기지 않는다. 이름이 남지 않는다고 알면 더 솔직해진다. */}
+        {/*
+          익명이라는 사실은 숨기지 않는다. 이름이 남지 않는다고 알면 더 솔직해진다.
+          별명이 있으면 그것부터 말한다 — 앱바의 칩은 신원이 생긴 뒤에야 보이므로,
+          처음 쓰는 사람에게 "무슨 이름으로 남는지"를 알려 줄 자리가 여기뿐이다.
+        */}
         <p className="mt-2 text-xs text-muted">
-          로그인 없이 남길 수 있어요 · 이름 대신 별명으로 표시됩니다
+          {nickname
+            ? `${nickname} 으로 남겨집니다 · 로그인 없이 쓸 수 있어요`
+            : "로그인 없이 남길 수 있어요 · 등록하면 별명이 자동으로 생겨요"}
         </p>
       </form>
     </section>

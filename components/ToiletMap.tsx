@@ -536,12 +536,10 @@ export default function ToiletMap() {
   const selectedDistance =
     selected && anchored ? straightLineDistance(center, selected) : null;
 
-  // 리뷰를 쓸 수 있는 상태인지. 거리 기준점은 위와 같은 anchored 를 본다 —
-  // 못 믿는 좌표로 "멀어서 못 쓴다"고 막으면 이유 없이 막는 것이 된다.
+  // 리뷰를 쓸 수 있는 상태인지. 거리는 보지 않는다 — 같은 화장실에 두 번 쓰는
+  // 것만 막는다(lib/reviews/eligibility.ts 참고).
   const selectedGate = selected
     ? reviewGate({
-        origin: anchored ? center : null,
-        toilet: selected,
         reviews: reviewsByToilet[selected.id],
         userId: identity.who?.userId ?? null,
       })
@@ -606,7 +604,10 @@ export default function ToiletMap() {
           하나의 컨테이너에 모으고, 눌러야 하는 것에만 pointer-events 를 준다.
         */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-start gap-2 p-3">
-          <AppBar label={toilets === null ? null : nearbyLabel(summary)} />
+          <AppBar
+            label={toilets === null ? null : nearbyLabel(summary)}
+            nickname={identity.who?.nickname ?? null}
+          />
 
           {routeState.status !== "idle" && (
             <div className="pointer-events-auto w-full">
@@ -723,6 +724,7 @@ export default function ToiletMap() {
             distanceMeters={selectedDistance}
             reviews={reviewsByToilet[selected.id]}
             gate={selectedGate}
+            nickname={identity.who?.nickname ?? null}
             onSubmitReview={handleSubmitReview}
             onNavigate={handleNavigate}
             onClose={() => setSelected(null)}

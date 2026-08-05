@@ -19,7 +19,7 @@ import { randomNickname } from "./nickname";
  *
  * 한계는 분명하다 — 브라우저 데이터를 지우면 다른 사람이 되고, 기기를 바꾸면
  * 자기 리뷰를 못 지운다. 그래서 남용은 신원이 아니라 규칙이 막는다:
- * unique(toilet_id, user_id) 와 lib/reviews/eligibility.ts 의 근접 검증.
+ * unique(toilet_id, user_id) 가 한 화장실에 하나만 허용한다.
  *
  * 나중에 카카오를 얹고 싶으면 auth.linkIdentity({provider:'kakao'}) 로 같은
  * user_id 에 붙이면 된다. 이미 쓴 리뷰가 그대로 따라온다.

@@ -7,16 +7,22 @@ type Props = {
    * 조립은 lib/toilets/nearby.ts 의 nearbyLabel 이 한다.
    */
   label: string | null;
+  /** 이 브라우저의 별명. 리뷰를 한 번도 안 썼으면 null(= 아직 신원이 없다). */
+  nickname: string | null;
 };
 
 /**
  * 로그인 버튼이 없다. 신원은 리뷰를 등록하는 순간 조용히 만들어지므로
- * (lib/auth/use-identity.ts) 사용자가 로그인을 의식할 자리가 없다.
+ * (lib/auth/use-identity.ts) 로그인할 자리 자체가 없다.
+ *
+ * 대신 신원이 생기면 별명을 여기에 띄운다. 내 글이 어떤 이름으로 남는지는
+ * 알아야 하고, 리뷰를 쓰는 순간 칩이 생기는 것 자체가 "지금 신원이 만들어졌다"를
+ * 말해 준다.
  */
-export default function AppBar({ label }: Props) {
+export default function AppBar({ label, nickname }: Props) {
   return (
-    <header className="pointer-events-auto flex w-full items-center rounded-2xl bg-surface/95 px-4 py-2.5 shadow-[0_2px_16px_rgba(20,35,31,0.16)] backdrop-blur-sm">
-      <p className="flex min-w-0 items-baseline gap-2">
+    <header className="pointer-events-auto flex w-full items-center gap-2 rounded-2xl bg-surface/95 px-4 py-2.5 shadow-[0_2px_16px_rgba(20,35,31,0.16)] backdrop-blur-sm">
+      <p className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="font-wordmark text-2xl leading-none text-brand">
           뿡
         </span>
@@ -25,6 +31,13 @@ export default function AppBar({ label }: Props) {
           {label ?? "불러오는 중…"}
         </span>
       </p>
+
+      {/* 별명이 길면 문구 쪽을 줄이는 게 아니라 별명을 줄인다 — 문구는 이미 truncate 다. */}
+      {nickname && (
+        <span className="max-w-28 shrink-0 truncate rounded-full bg-brand-soft px-2.5 py-1 text-xs font-medium text-brand-soft-ink">
+          {nickname}
+        </span>
+      )}
     </header>
   );
 }

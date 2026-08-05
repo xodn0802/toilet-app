@@ -32,6 +32,8 @@ type Props = {
   reviews: Review[] | undefined;
   /** 리뷰를 쓸 수 있는 상태인지. 판정은 lib/reviews/eligibility.ts 가 한다. */
   gate: ReviewGate;
+  /** 이 브라우저의 별명. 아직 신원이 없으면 null. */
+  nickname: string | null;
   onSubmitReview: (draft: ReviewDraft) => Promise<void>;
   onNavigate: () => void;
   onClose: () => void;
@@ -45,6 +47,7 @@ export default function ToiletDetailSheet({
   distanceMeters,
   reviews,
   gate,
+  nickname,
   onSubmitReview,
   onNavigate,
   onClose,
@@ -164,7 +167,7 @@ export default function ToiletDetailSheet({
       >
         <ToiletFacts toilet={toilet} reviews={loaded} />
 
-        <ReviewForm gate={gate} onSubmit={onSubmitReview} />
+        <ReviewForm gate={gate} nickname={nickname} onSubmit={onSubmitReview} />
 
         <section className="mt-6">
           <h3 className="text-sm font-semibold">리뷰 {loaded.length}</h3>
