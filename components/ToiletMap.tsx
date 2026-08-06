@@ -101,7 +101,7 @@ function Notice({
 
   return (
     <p
-      className={`max-w-full truncate rounded-full px-3 py-1.5 text-xs shadow-[0_1px_8px_rgba(20,35,31,0.12)] backdrop-blur-sm ${style}`}
+      className={`max-w-full truncate rounded-full px-3 py-1.5 text-xs shadow-chip backdrop-blur-sm ${style}`}
     >
       {children}
     </p>
@@ -656,7 +656,7 @@ export default function ToiletMap() {
               }}
               disabled={!sdkReady}
               aria-label="화장실 추가"
-              className="grid h-12 w-12 place-items-center rounded-full bg-brand text-brand-ink shadow-[0_2px_12px_rgba(20,35,31,0.18)] hover:bg-brand-strong disabled:bg-surface disabled:text-muted"
+              className="grid h-12 w-12 place-items-center rounded-full bg-brand text-brand-ink shadow-float hover:bg-brand-strong disabled:bg-surface disabled:text-muted"
             >
               <svg
                 aria-hidden
@@ -677,7 +677,7 @@ export default function ToiletMap() {
               onClick={handleRecenter}
               disabled={!sdkReady || locationState !== "granted"}
               aria-label="현재 위치로 이동"
-              className="grid h-12 w-12 place-items-center rounded-full bg-surface text-brand shadow-[0_2px_12px_rgba(20,35,31,0.18)] hover:bg-sunken disabled:text-muted"
+              className="grid h-12 w-12 place-items-center rounded-full bg-surface text-brand shadow-float hover:bg-sunken disabled:text-muted"
             >
               <svg
                 aria-hidden

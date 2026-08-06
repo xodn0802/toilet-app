@@ -23,7 +23,7 @@ export default function LocationPickPanel({
   const found = address && (address.road || address.jibun);
 
   return (
-    <div className="absolute inset-x-0 bottom-0 z-10 rounded-t-3xl bg-surface px-5 pt-4 pb-6 shadow-[0_-4px_24px_rgba(20,35,31,0.16)]">
+    <div className="absolute inset-x-0 bottom-0 z-10 rounded-t-3xl bg-surface px-5 pt-4 pb-6 shadow-sheet">
       <p className="text-sm font-semibold">화장실 위치를 맞춰주세요</p>
       <p className="mt-0.5 text-xs text-muted">
         지도를 움직여 핀을 화장실 위에 두세요

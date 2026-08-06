@@ -118,7 +118,7 @@ export default function AddToiletForm({
 
   if (done) {
     return (
-      <div className="absolute inset-x-0 bottom-0 z-10 rounded-t-3xl bg-surface px-5 pt-8 pb-8 text-center shadow-[0_-4px_24px_rgba(20,35,31,0.16)]">
+      <div className="absolute inset-x-0 bottom-0 z-10 rounded-t-3xl bg-surface px-5 pt-8 pb-8 text-center shadow-sheet">
         <p className="text-2xl" aria-hidden>
           🙌
         </p>
@@ -141,7 +141,7 @@ export default function AddToiletForm({
   const addressLabel = address.road ?? address.jibun;
 
   return (
-    <div className="absolute inset-x-0 bottom-0 z-10 flex max-h-[88%] flex-col overflow-hidden rounded-t-3xl bg-surface shadow-[0_-4px_24px_rgba(20,35,31,0.16)]">
+    <div className="absolute inset-x-0 bottom-0 z-10 flex max-h-[88%] flex-col overflow-hidden rounded-t-3xl bg-surface shadow-sheet">
       <div className="shrink-0 pt-2.5 pb-1">
         <span className="mx-auto block h-1 w-10 rounded-full bg-line" />
       </div>

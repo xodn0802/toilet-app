@@ -12,8 +12,8 @@
   --surface: #ffffff; /* 그 위에 올라가는 면 — 앱바·시트·카드 */
   --sunken: #f7f8f6; /* 면보다 한 단 들어간 곳 — 입력칸 */
   --ink: #14231f; /* 본문 */
-  --muted: #6b7672; /* 보조 설명, 라벨 */
-  --line: #e2e7e4;
+  --muted: #5a6562; /* 보조 설명, 라벨 */
+  --line: #d3dbd7;
 
   --brand: #2e7d6b; /* 길찾기·로그인처럼 진행시키는 동작 */
   --brand-strong: #25675a; /* 그 위에 마우스를 올렸을 때 */
@@ -28,6 +28,19 @@
 
   --star: #e8a33c;
   --star-empty: #d3d9d6;
+
+  /*
+    지도 위에 뜨는 것들의 그림자. 브랜드 색을 옅게 탄 그림자를 쓴다 — 중성 회색
+    그림자는 지도 타일 위에서 때가 탄 것처럼 보이고, 청록이 섞이면 떠 있는 면과
+    지도가 같은 세계에 있는 것처럼 붙는다.
+
+    이름 앞에 elev 를 붙인 이유: 그림자 네임스페이스는 Tailwind 가 유틸리티를
+    만드는 데 쓰므로 아래 @theme inline 몫으로 비워 둔다. 색 토큰(--paper →
+    --color-paper)과 같은 방식이다.
+  */
+  --elev-float: 0 4px 12px rgba(46, 125, 107, 0.15); /* 앱바·FAB */
+  --elev-sheet: 0 -4px 24px rgba(46, 125, 107, 0.18); /* 바텀시트 */
+  --elev-chip: 0 1px 8px rgba(46, 125, 107, 0.12); /* 알림 칩 */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -52,6 +65,11 @@
 
     --star: #f0b657;
     --star-empty: #3a4844;
+
+    /* 어두운 바닥에서는 청록 그림자가 아예 안 보인다. 검정으로 바꾼다. */
+    --elev-float: 0 4px 12px rgba(0, 0, 0, 0.45);
+    --elev-sheet: 0 -4px 24px rgba(0, 0, 0, 0.5);
+    --elev-chip: 0 1px 8px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -76,6 +94,21 @@
 
   --color-star: var(--star);
   --color-star-empty: var(--star-empty);
+
+  --shadow-float: var(--elev-float);
+  --shadow-sheet: var(--elev-sheet);
+  --shadow-chip: var(--elev-chip);
+
+  /*
+    섹션 라벨("시설 정보", "리뷰"처럼 내용 위에 붙는 작은 머리말).
+
+    uppercase 는 안 붙인다 — 한글에 안 먹는다. 작고 굵고 자간이 벌어진 것만으로도
+    본문과 충분히 구분되고, 영문 대문자를 흉내 내려다 한글만 어정쩡해지는 것보다 낫다.
+  */
+  --text-label: 12px;
+  --text-label--line-height: 16px;
+  --text-label--letter-spacing: 0.05em;
+  --text-label--font-weight: 700;
 
   --font-wordmark: var(--font-black-han-sans);
 }

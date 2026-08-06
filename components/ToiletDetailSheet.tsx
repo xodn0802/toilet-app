@@ -69,7 +69,7 @@ export default function ToiletDetailSheet({
 
   return (
     <div
-      className={`absolute inset-x-0 bottom-0 z-10 flex flex-col overflow-hidden rounded-t-3xl bg-surface shadow-[0_-4px_24px_rgba(20,35,31,0.16)] transition-[max-height] duration-300 ease-out ${
+      className={`absolute inset-x-0 bottom-0 z-10 flex flex-col overflow-hidden rounded-t-3xl bg-surface shadow-sheet transition-[max-height] duration-300 ease-out ${
         expanded ? "max-h-[88%]" : "max-h-56"
       }`}
     >

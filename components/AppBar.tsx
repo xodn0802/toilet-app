@@ -21,7 +21,7 @@ type Props = {
  */
 export default function AppBar({ label, nickname }: Props) {
   return (
-    <header className="pointer-events-auto flex w-full items-center gap-2 rounded-2xl bg-surface/95 px-4 py-2.5 shadow-[0_2px_16px_rgba(20,35,31,0.16)] backdrop-blur-sm">
+    <header className="pointer-events-auto flex w-full items-center gap-2 rounded-2xl bg-surface/95 px-4 py-2.5 shadow-float backdrop-blur-sm">
       <p className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="font-wordmark text-2xl leading-none text-brand">
           뿡

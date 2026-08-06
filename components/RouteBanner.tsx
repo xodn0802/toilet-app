@@ -42,7 +42,7 @@ export default function RouteBanner({
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-[0_2px_16px_rgba(20,35,31,0.2)] ${tone}`}
+      className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-float ${tone}`}
     >
       <span
         aria-hidden
