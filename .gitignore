@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# oh-my-claudecode (도구가 만드는 로컬 세션 상태·프로젝트 메모리)
+/.omc/
