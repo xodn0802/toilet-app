@@ -50,8 +50,12 @@ function formatToiletCounts(toilet: MappableToilet): string {
  *
  * 공공데이터에는 빈 값이 흔하다. null 을 "없음"으로 표시하면 실제로는 있는
  * 장애인 화장실을 없다고 말하게 된다. 없는 것과 모르는 것은 구분한다.
+ *
+ * 상태를 색으로만 나르지 않는다 — 칩 안에 "있음"·"없음"·"정보 없음"을 그대로
+ * 적는다. 색만으로 구분하면 색을 못 가리는 사람에게는 3상태가 1상태가 된다.
+ * 점선 외곽선은 그 위에 얹는 보조 신호다("아직 채워지지 않은 칸"으로 읽힌다).
  */
-function FacilityCard({
+function FacilityChip({
   icon,
   label,
   value,
@@ -63,18 +67,20 @@ function FacilityCard({
   const tone =
     value === true
       ? "border-brand-soft-line bg-brand-soft text-brand-soft-ink"
-      : "border-line bg-sunken text-muted";
+      : value === false
+        ? "border-line text-muted"
+        : "border-dashed border-line text-muted";
 
   return (
-    <div className={`rounded-xl border px-3 py-2.5 ${tone}`}>
-      <p className="flex items-center gap-1.5 text-sm font-medium">
-        <Icon name={icon} className="h-4 w-4" />
-        {label}
-      </p>
-      <p className="mt-0.5 text-xs">
+    <li
+      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm ${tone}`}
+    >
+      <Icon name={icon} className="h-4 w-4" />
+      {label}
+      <span className="font-semibold">
         {value === null ? UNKNOWN : value ? "있음" : "없음"}
-      </p>
-    </div>
+      </span>
+    </li>
   );
 }
 
@@ -93,22 +99,22 @@ export default function ToiletFacts({ toilet, reviews }: Props) {
     <>
       <section>
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold">시설 정보</h3>
+          <h3 className="text-label text-muted">시설 정보</h3>
           <span className="text-xs text-muted">공공데이터</span>
         </div>
 
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <FacilityCard
+        <ul className="mt-2 flex flex-wrap gap-2">
+          <FacilityChip
             icon="accessible"
             label="장애인 화장실"
             value={toilet.has_disabled_toilet}
           />
-          <FacilityCard
+          <FacilityChip
             icon="baby"
             label="기저귀 교환대"
             value={toilet.has_diaper_table}
           />
-        </div>
+        </ul>
 
         <dl className="mt-3 space-y-1.5 text-sm">
           {rows.map(({ label, value }) => (
@@ -122,7 +128,7 @@ export default function ToiletFacts({ toilet, reviews }: Props) {
 
       <section className="mt-6">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold">이용자 확인</h3>
+          <h3 className="text-label text-muted">이용자 확인</h3>
           <span className="text-xs text-muted">
             {reviews.length > 0 ? `리뷰 ${reviews.length}개 기준` : "리뷰 없음"}
           </span>

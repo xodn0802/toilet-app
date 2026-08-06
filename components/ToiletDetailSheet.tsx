@@ -15,6 +15,7 @@ import {
 } from "@/lib/reviews/types";
 import type { MappableToilet } from "@/lib/toilets/types";
 
+import CleanlinessMeter from "./CleanlinessMeter";
 import Icon from "./Icons";
 import ReviewForm from "./ReviewForm";
 import ReviewList from "./ReviewList";
@@ -61,6 +62,14 @@ export default function ToiletDetailSheet({
   const loaded = reviews ?? [];
   const average = averageCleanliness(loaded);
 
+  // 값(별점)은 배지가, 개수는 이 줄이 맡는다. 한 줄에 섞여 있던 것을 나눴다.
+  const reviewLabel =
+    reviews === undefined
+      ? "리뷰 불러오는 중…"
+      : loaded.length === 0
+        ? "리뷰 없음"
+        : `리뷰 ${loaded.length}개`;
+
   // 길찾기를 하고 나면 실제 도보 거리를 알게 되므로 직선거리는 물러난다.
   const distanceLabel = route
     ? `${formatDistance(route.distanceMeters)} · ${formatDuration(route.durationSeconds)}`
@@ -71,7 +80,7 @@ export default function ToiletDetailSheet({
   return (
     <div
       className={`absolute inset-x-0 bottom-0 z-10 flex flex-col overflow-hidden rounded-t-3xl bg-surface shadow-sheet transition-[max-height] duration-300 ease-out ${
-        expanded ? "max-h-[88%]" : "max-h-56"
+        expanded ? "max-h-[88%]" : "max-h-64"
       }`}
     >
       <button
@@ -88,28 +97,16 @@ export default function ToiletDetailSheet({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="truncate text-lg font-semibold">{toilet.name}</h2>
+              <h2 className="truncate text-xl leading-tight font-semibold">
+                {toilet.name}
+              </h2>
               <span className="shrink-0 rounded-md bg-sunken px-1.5 py-0.5 text-xs text-muted">
                 {toilet.source === "public" ? "공공" : "사용자"}
               </span>
             </div>
 
             <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted">
-              {reviews === undefined ? (
-                <span>리뷰 불러오는 중…</span>
-              ) : average === null ? (
-                <span>리뷰 없음</span>
-              ) : (
-                <>
-                  <span aria-hidden className="text-star">
-                    ★
-                  </span>
-                  <span className="font-medium text-ink">
-                    {average.toFixed(1)}
-                  </span>
-                  <span>({loaded.length})</span>
-                </>
-              )}
+              <span>{reviewLabel}</span>
               {distanceLabel && (
                 <>
                   <span aria-hidden>·</span>
@@ -119,14 +116,30 @@ export default function ToiletDetailSheet({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="상세 닫기"
-            className="-mt-1 -mr-1 shrink-0 rounded-full p-2 text-muted hover:bg-sunken hover:text-ink"
-          >
-            <Icon name="close" className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/*
+              평균 별점을 회색 한 줄에서 빼내 배지로 세운다. 접힌 시트에서 이
+              값이 "여기 들어갈지 말지"를 가르는 유일한 판단 재료다.
+            */}
+            {average !== null && (
+              <span
+                aria-label={`평균 청결도 5점 만점에 ${average.toFixed(1)}점`}
+                className="flex items-center gap-0.5 rounded-lg bg-brand px-2 py-1 text-sm font-semibold text-brand-ink"
+              >
+                {average.toFixed(1)}
+                <span aria-hidden>★</span>
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="상세 닫기"
+              className="-mt-1 -mr-1 rounded-full p-2 text-muted hover:bg-sunken hover:text-ink"
+            >
+              <Icon name="close" className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="mt-3 flex gap-2">
@@ -171,10 +184,12 @@ export default function ToiletDetailSheet({
       >
         <ToiletFacts toilet={toilet} reviews={loaded} />
 
+        <CleanlinessMeter reviews={reviews} />
+
         <ReviewForm gate={gate} nickname={nickname} onSubmit={onSubmitReview} />
 
         <section className="mt-6">
-          <h3 className="text-sm font-semibold">리뷰 {loaded.length}</h3>
+          <h3 className="text-label text-muted">리뷰 {loaded.length}</h3>
           <ReviewList reviews={loaded} />
         </section>
       </div>
