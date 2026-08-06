@@ -88,9 +88,15 @@ function readBounds(map: kakao.maps.Map): Bounds {
 /** 지도 위에 얹는 작은 안내. 배경이 지도라 항상 면을 깔고 그 위에 글씨를 둔다. */
 function Notice({
   tone = "muted",
+  busy = false,
   children,
 }: {
   tone?: "muted" | "signal" | "error";
+  /**
+   * 기다리는 중이라는 표시. 위치 확인은 몇 초씩 걸리는데 글자만 있으면 앱이
+   * 멈춘 것과 구분되지 않는다. 도는 것이 하나 있으면 "진행 중"으로 읽힌다.
+   */
+  busy?: boolean;
   children: React.ReactNode;
 }) {
   const style =
@@ -102,9 +108,17 @@ function Notice({
 
   return (
     <p
-      className={`max-w-full truncate rounded-full px-3 py-1.5 text-xs shadow-chip backdrop-blur-sm ${style}`}
+      className={`flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs shadow-chip backdrop-blur-sm ${style}`}
     >
-      {children}
+      {busy && (
+        // currentColor 라 tone 을 그대로 따라간다. 글자가 이미 상태를 말하므로
+        // 스크린리더에는 숨긴다.
+        <span
+          aria-hidden
+          className="size-3 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent opacity-70"
+        />
+      )}
+      <span className="truncate">{children}</span>
     </p>
   );
 }
@@ -629,7 +643,10 @@ export default function ToiletMap() {
           {toiletsError && <Notice tone="error">{toiletsError}</Notice>}
           {reviewsError && <Notice tone="error">{reviewsError}</Notice>}
           {locationMessage && (
-            <Notice tone={locationCoarse ? "signal" : "muted"}>
+            <Notice
+              tone={locationCoarse ? "signal" : "muted"}
+              busy={locationState === "pending"}
+            >
               {locationMessage}
             </Notice>
           )}

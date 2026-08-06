@@ -75,7 +75,7 @@ export default function ReviewForm({ gate, nickname, onSubmit }: Props) {
 
   return (
     <section className="mt-6">
-      <h3 className="text-sm font-semibold">리뷰 쓰기</h3>
+      <h3 className="text-label text-muted">리뷰 쓰기</h3>
 
       <form onSubmit={handleSubmit} className="mt-2">
         <p className="text-sm font-medium">청결도</p>

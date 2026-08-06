@@ -46,12 +46,16 @@ export default function ReviewList({ reviews }: { reviews: Review[] }) {
             <p className="mt-1.5 text-sm leading-relaxed">{review.comment}</p>
           )}
 
+          {/*
+            시설 칩의 "있음"과 같은 톤이다. 이 태그들은 다녀온 사람이 "봤다"고
+            말한 것이라 긍정 진술이고, 회색으로 두면 미선택 칩과 같은 얼굴이 된다.
+          */}
           {review.tags.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {review.tags.map((tag) => (
                 <li
                   key={tag}
-                  className="rounded-full bg-sunken px-2.5 py-1 text-xs text-muted"
+                  className="rounded-full border border-brand-soft-line bg-brand-soft px-2.5 py-0.5 text-xs text-brand-soft-ink"
                 >
                   {TAG_LABEL.get(tag) ?? tag}
                 </li>
