@@ -19,14 +19,13 @@ export type ReviewTag =
  * DB 의 tags 는 text[] 라서 값 검증을 하지 않는다(스키마 주석 참고).
  * 그래서 이 배열이 유효한 태그의 유일한 정의다.
  */
-export const REVIEW_TAGS: { value: ReviewTag; label: string; emoji: string }[] =
-  [
-    { value: "tissue", label: "휴지", emoji: "🧻" },
-    { value: "soap", label: "비누", emoji: "🧼" },
-    { value: "bidet", label: "비데", emoji: "💦" },
-    { value: "hot_water", label: "온수", emoji: "♨️" },
-    { value: "accessible", label: "장애인", emoji: "♿" },
-  ];
+export const REVIEW_TAGS: { value: ReviewTag; label: string }[] = [
+  { value: "tissue", label: "휴지" },
+  { value: "soap", label: "비누" },
+  { value: "bidet", label: "비데" },
+  { value: "hot_water", label: "온수" },
+  { value: "accessible", label: "장애인" },
+];
 
 export type Review = {
   id: string;

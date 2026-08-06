@@ -14,6 +14,8 @@ import {
   type SubmissionDraft,
 } from "@/lib/toilets/submission";
 
+import Icon from "./Icons";
+
 type Props = {
   /** 앞 단계에서 고른 위치. 여기서는 안 바뀐다. */
   position: { lat: number; lng: number };
@@ -119,9 +121,7 @@ export default function AddToiletForm({
   if (done) {
     return (
       <div className="absolute inset-x-0 bottom-0 z-10 rounded-t-3xl bg-surface px-5 pt-8 pb-8 text-center shadow-sheet">
-        <p className="text-2xl" aria-hidden>
-          🙌
-        </p>
+        <Icon name="check" className="h-9 w-9 text-brand" />
         <p className="mt-2 font-semibold">접수됐어요</p>
         {/* 지금 지도에 안 뜨는 이유가 여기서 설명돼야 한다. */}
         <p className="mt-1 text-sm text-muted">
@@ -157,9 +157,9 @@ export default function AddToiletForm({
           type="button"
           onClick={onClose}
           aria-label="추가 닫기"
-          className="-mt-1 -mr-1 shrink-0 rounded-full p-2 text-2xl leading-none text-muted hover:bg-sunken hover:text-ink"
+          className="-mt-1 -mr-1 shrink-0 rounded-full p-2 text-muted hover:bg-sunken hover:text-ink"
         >
-          ×
+          <Icon name="close" className="h-5 w-5" />
         </button>
       </div>
 
@@ -238,7 +238,7 @@ export default function AddToiletForm({
                 on={facilities.includes(option.value)}
                 onClick={() => toggleFacility(option.value)}
               >
-                <span aria-hidden>{option.emoji}</span> {option.label}
+                {option.label}
               </Chip>
             </li>
           ))}

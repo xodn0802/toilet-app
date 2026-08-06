@@ -7,19 +7,18 @@ import {
   type ReviewTag,
 } from "@/lib/reviews/types";
 
+import Icon from "./Icons";
 import StarRating from "./StarRating";
 
 const TAG_LABEL = new Map<ReviewTag, string>(
-  REVIEW_TAGS.map((tag) => [tag.value, `${tag.emoji} ${tag.label}`]),
+  REVIEW_TAGS.map((tag) => [tag.value, tag.label]),
 );
 
 export default function ReviewList({ reviews }: { reviews: Review[] }) {
   if (reviews.length === 0) {
     return (
       <div className="py-10 text-center">
-        <p aria-hidden className="text-3xl">
-          💬
-        </p>
+        <Icon name="chat" className="h-8 w-8 text-line" />
         <p className="mt-2 text-sm font-medium">아직 리뷰가 없어요</p>
         <p className="mt-1 text-sm text-muted">
           다녀오셨다면 첫 번째 리뷰를 남겨주세요

@@ -3,6 +3,8 @@
 import { countTag, REVIEW_TAGS, type Review } from "@/lib/reviews/types";
 import type { MappableToilet } from "@/lib/toilets/types";
 
+import Icon, { type IconName } from "./Icons";
+
 /**
  * 화장실 정보를 출처별로 두 덩어리로 나눠 보여준다.
  *
@@ -50,11 +52,11 @@ function formatToiletCounts(toilet: MappableToilet): string {
  * 장애인 화장실을 없다고 말하게 된다. 없는 것과 모르는 것은 구분한다.
  */
 function FacilityCard({
-  emoji,
+  icon,
   label,
   value,
 }: {
-  emoji: string;
+  icon: IconName;
   label: string;
   value: boolean | null;
 }) {
@@ -66,7 +68,7 @@ function FacilityCard({
   return (
     <div className={`rounded-xl border px-3 py-2.5 ${tone}`}>
       <p className="flex items-center gap-1.5 text-sm font-medium">
-        <span aria-hidden>{emoji}</span>
+        <Icon name={icon} className="h-4 w-4" />
         {label}
       </p>
       <p className="mt-0.5 text-xs">
@@ -97,12 +99,12 @@ export default function ToiletFacts({ toilet, reviews }: Props) {
 
         <div className="mt-2 grid grid-cols-2 gap-2">
           <FacilityCard
-            emoji="♿"
+            icon="accessible"
             label="장애인 화장실"
             value={toilet.has_disabled_toilet}
           />
           <FacilityCard
-            emoji="🍼"
+            icon="baby"
             label="기저귀 교환대"
             value={toilet.has_diaper_table}
           />
@@ -144,8 +146,7 @@ export default function ToiletFacts({ toilet, reviews }: Props) {
                       : "border-line bg-sunken text-muted"
                   }`}
                 >
-                  <span aria-hidden>{tag.emoji}</span> {tag.label}{" "}
-                  <span className="font-semibold">{count}</span>
+                  {tag.label} <span className="font-semibold">{count}</span>
                 </li>
               );
             })}

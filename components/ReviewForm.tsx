@@ -106,7 +106,7 @@ export default function ReviewForm({ gate, nickname, onSubmit }: Props) {
                       : "border-line text-muted hover:border-muted"
                   }`}
                 >
-                  <span aria-hidden>{tag.emoji}</span> {tag.label}
+                  {tag.label}
                 </button>
               </li>
             );

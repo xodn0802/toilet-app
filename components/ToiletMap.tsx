@@ -28,6 +28,7 @@ import { isMappable, type MappableToilet } from "@/lib/toilets/types";
 
 import AddToilet from "./AddToilet";
 import AppBar from "./AppBar";
+import Icon from "./Icons";
 import RouteBanner from "./RouteBanner";
 import ToiletDetailSheet from "./ToiletDetailSheet";
 
@@ -658,17 +659,7 @@ export default function ToiletMap() {
               aria-label="화장실 추가"
               className="grid h-12 w-12 place-items-center rounded-full bg-brand text-brand-ink shadow-float hover:bg-brand-strong disabled:bg-surface disabled:text-muted"
             >
-              <svg
-                aria-hidden
-                viewBox="0 0 24 24"
-                className="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.2}
-                strokeLinecap="round"
-              >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+              <Icon name="add" className="h-6 w-6" />
             </button>
 
             {/* 지도를 끌고 다니다 돌아올 길. */}
@@ -679,27 +670,7 @@ export default function ToiletMap() {
               aria-label="현재 위치로 이동"
               className="grid h-12 w-12 place-items-center rounded-full bg-surface text-brand shadow-float hover:bg-sunken disabled:text-muted"
             >
-              <svg
-                aria-hidden
-                viewBox="0 0 24 24"
-                className="h-[22px] w-[22px]"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <circle cx="12" cy="12" r="7" />
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="2.6"
-                  fill="currentColor"
-                  stroke="none"
-                />
-                <path
-                  d="M12 2v3M12 19v3M2 12h3M19 12h3"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <Icon name="myLocation" className="h-[22px] w-[22px]" />
             </button>
           </div>
         )}

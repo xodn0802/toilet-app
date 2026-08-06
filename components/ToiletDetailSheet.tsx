@@ -15,6 +15,7 @@ import {
 } from "@/lib/reviews/types";
 import type { MappableToilet } from "@/lib/toilets/types";
 
+import Icon from "./Icons";
 import ReviewForm from "./ReviewForm";
 import ReviewList from "./ReviewList";
 import ToiletFacts from "./ToiletFacts";
@@ -122,9 +123,9 @@ export default function ToiletDetailSheet({
             type="button"
             onClick={onClose}
             aria-label="상세 닫기"
-            className="-mt-1 -mr-1 shrink-0 rounded-full p-2 text-2xl leading-none text-muted hover:bg-sunken hover:text-ink"
+            className="-mt-1 -mr-1 shrink-0 rounded-full p-2 text-muted hover:bg-sunken hover:text-ink"
           >
-            ×
+            <Icon name="close" className="h-5 w-5" />
           </button>
         </div>
 
@@ -139,8 +140,11 @@ export default function ToiletDetailSheet({
               type="button"
               onClick={onNavigate}
               disabled={loading || !canNavigate}
-              className="flex-1 rounded-xl bg-brand px-4 py-3 font-semibold text-brand-ink hover:bg-brand-strong disabled:bg-sunken disabled:text-muted"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand px-4 py-3 font-semibold text-brand-ink hover:bg-brand-strong disabled:bg-sunken disabled:text-muted"
             >
+              {canNavigate && !loading && (
+                <Icon name="directions" className="h-5 w-5" />
+              )}
               {loading
                 ? "경로를 찾는 중…"
                 : canNavigate

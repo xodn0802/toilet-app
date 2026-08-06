@@ -26,15 +26,11 @@ export type Facility = "tissue" | "soap" | "accessible" | "diaper";
  * DB 의 facilities 는 text[] 라 값 검증을 하지 않는다 — 이 배열이 유효한 값의
  * 유일한 정의다.
  */
-export const FACILITY_OPTIONS: {
-  value: Facility;
-  label: string;
-  emoji: string;
-}[] = [
-  { value: "tissue", label: "휴지", emoji: "🧻" },
-  { value: "soap", label: "비누", emoji: "🧼" },
-  { value: "accessible", label: "장애인", emoji: "♿" },
-  { value: "diaper", label: "기저귀교환대", emoji: "🍼" },
+export const FACILITY_OPTIONS: { value: Facility; label: string }[] = [
+  { value: "tissue", label: "휴지" },
+  { value: "soap", label: "비누" },
+  { value: "accessible", label: "장애인" },
+  { value: "diaper", label: "기저귀교환대" },
 ];
 
 /** 스키마의 char_length check 와 같은 값. 넘으면 DB 가 거부한다. */
