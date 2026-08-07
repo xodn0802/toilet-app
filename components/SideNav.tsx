@@ -14,6 +14,7 @@ import {
 import { useIdentity } from "@/lib/auth/use-identity";
 
 import Icon, { type IconName } from "./Icons";
+import ThemeToggle from "./ThemeToggle";
 
 /**
  * 앱 전체의 왼쪽 메뉴.
@@ -191,6 +192,11 @@ export default function SideNav() {
             );
           })}
         </ul>
+
+        {/* Stitch 초안의 Settings 자리. 지금 여기서 고를 것은 테마 하나다. */}
+        <div className="mt-auto">
+          <ThemeToggle />
+        </div>
       </nav>
     </>
   );

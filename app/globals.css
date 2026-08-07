@@ -7,70 +7,76 @@
   쓰고 hex 를 직접 쓰지 않는다. 다크 모드도 같은 이름의 값만 바꾸므로 컴포넌트에
   `dark:` 를 달 필요가 없다 — 한 색을 고치려고 파일 열 개를 뒤지지 않게 하려는 것.
 */
+/*
+  값은 light-dark(라이트, 다크) 한 줄에 나란히 적는다. 두 벌을 따로 적으면
+  하나를 고치고 다른 하나를 잊는 날이 오고, 두 모드가 서서히 어긋난다.
+
+  color-scheme 이 없으면 light-dark() 는 항상 라이트로 풀린다. 그래서 아래
+  세 규칙이 곧 테마 선택이다 — data-theme 이 없으면 `light dark` 라 OS 를
+  따라가고, 그것이 "시스템"이라는 선택지의 구현이다. 토글은 속성을 붙이거나
+  떼기만 한다.
+*/
 :root {
-  --paper: #f2f5f3; /* 화면 바닥 */
-  --surface: #ffffff; /* 그 위에 올라가는 면 — 앱바·시트·카드 */
-  --sunken: #f7f8f6; /* 면보다 한 단 들어간 곳 — 입력칸 */
-  --ink: #14231f; /* 본문 */
-  --muted: #5a6562; /* 보조 설명, 라벨 */
-  --line: #d3dbd7;
+  color-scheme: light dark;
 
-  --brand: #2e7d6b; /* 길찾기·로그인처럼 진행시키는 동작 */
-  --brand-strong: #25675a; /* 그 위에 마우스를 올렸을 때 */
-  --brand-ink: #ffffff; /* 브랜드 색 위에 얹는 글씨 */
-  --brand-soft: #e4f1ec; /* 켜진 태그칩, 선택된 상태 */
-  --brand-soft-ink: #1f5a4c;
-  --brand-soft-line: #b9dbd0;
+  --paper: light-dark(#f2f5f3, #0d1412); /* 화면 바닥 */
+  --surface: light-dark(
+    #ffffff,
+    #17211e
+  ); /* 그 위에 올라가는 면 — 앱바·시트·카드 */
+  --sunken: light-dark(#f7f8f6, #1e2b27); /* 면보다 한 단 들어간 곳 — 입력칸 */
+  --ink: light-dark(#14231f, #e8edea); /* 본문 */
+  --muted: light-dark(#5a6562, #93a09b); /* 보조 설명, 라벨 */
+  --line: light-dark(#d3dbd7, #2a3733);
 
-  --signal: #e2622c; /* 에러, 확인이 필요한 상태 */
-  --signal-soft: #fdf0e8;
-  --signal-soft-ink: #8a3a12;
+  --brand: light-dark(#2e7d6b, #4fa98f); /* 길찾기처럼 진행시키는 동작 */
+  --brand-strong: light-dark(#25675a, #65c0a6); /* 그 위에 마우스를 올렸을 때 */
+  --brand-ink: light-dark(#ffffff, #06201a); /* 브랜드 색 위에 얹는 글씨 */
+  --brand-soft: light-dark(#e4f1ec, #1b322c); /* 켜진 태그칩, 선택된 상태 */
+  --brand-soft-ink: light-dark(#1f5a4c, #a7d9c8);
+  --brand-soft-line: light-dark(#b9dbd0, #2d4d44);
 
-  --star: #e8a33c;
-  --star-empty: #d3d9d6;
+  --signal: light-dark(#e2622c, #ff7a45); /* 에러, 확인이 필요한 상태 */
+  --signal-soft: light-dark(#fdf0e8, #3a1f13);
+  --signal-soft-ink: light-dark(#8a3a12, #ffb894);
+
+  --star: light-dark(#e8a33c, #f0b657);
+  --star-empty: light-dark(#d3d9d6, #3a4844);
 
   /*
-    지도 위에 뜨는 것들의 그림자. 브랜드 색을 옅게 탄 그림자를 쓴다 — 중성 회색
-    그림자는 지도 타일 위에서 때가 탄 것처럼 보이고, 청록이 섞이면 떠 있는 면과
-    지도가 같은 세계에 있는 것처럼 붙는다.
+    지도 위에 뜨는 것들의 그림자. 라이트에서는 브랜드 색을 옅게 탄 그림자를
+    쓴다 — 중성 회색 그림자는 지도 타일 위에서 때가 탄 것처럼 보이고, 청록이
+    섞이면 떠 있는 면과 지도가 같은 세계에 있는 것처럼 붙는다. 어두운 바닥에서는
+    청록 그림자가 아예 안 보이므로 검정으로 바꾼다.
 
     이름 앞에 elev 를 붙인 이유: 그림자 네임스페이스는 Tailwind 가 유틸리티를
     만드는 데 쓰므로 아래 @theme inline 몫으로 비워 둔다. 색 토큰(--paper →
     --color-paper)과 같은 방식이다.
   */
-  --elev-float: 0 4px 12px rgba(46, 125, 107, 0.15); /* 앱바·FAB */
-  --elev-sheet: 0 -4px 24px rgba(46, 125, 107, 0.18); /* 바텀시트 */
-  --elev-chip: 0 1px 8px rgba(46, 125, 107, 0.12); /* 알림 칩 */
+  --elev-float: light-dark(
+    0 4px 12px rgba(46, 125, 107, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.45)
+  ); /* 앱바·FAB */
+  --elev-sheet: light-dark(
+    0 -4px 24px rgba(46, 125, 107, 0.18),
+    0 -4px 24px rgba(0, 0, 0, 0.5)
+  ); /* 바텀시트 */
+  --elev-chip: light-dark(
+    0 1px 8px rgba(46, 125, 107, 0.12),
+    0 1px 8px rgba(0, 0, 0, 0.4)
+  ); /* 알림 칩 */
+  --elev-cta: light-dark(
+    0 4px 14px rgba(46, 125, 107, 0.39),
+    0 4px 14px rgba(0, 0, 0, 0.5)
+  ); /* 브랜드 색 버튼 — 색이 번지듯 퍼지는 글로우 */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0d1412;
-    --surface: #17211e;
-    --sunken: #1e2b27;
-    --ink: #e8edea;
-    --muted: #93a09b;
-    --line: #2a3733;
+:root[data-theme="light"] {
+  color-scheme: light;
+}
 
-    --brand: #4fa98f;
-    --brand-strong: #65c0a6;
-    --brand-ink: #06201a;
-    --brand-soft: #1b322c;
-    --brand-soft-ink: #a7d9c8;
-    --brand-soft-line: #2d4d44;
-
-    --signal: #ff7a45;
-    --signal-soft: #3a1f13;
-    --signal-soft-ink: #ffb894;
-
-    --star: #f0b657;
-    --star-empty: #3a4844;
-
-    /* 어두운 바닥에서는 청록 그림자가 아예 안 보인다. 검정으로 바꾼다. */
-    --elev-float: 0 4px 12px rgba(0, 0, 0, 0.45);
-    --elev-sheet: 0 -4px 24px rgba(0, 0, 0, 0.5);
-    --elev-chip: 0 1px 8px rgba(0, 0, 0, 0.4);
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -98,6 +104,7 @@
   --shadow-float: var(--elev-float);
   --shadow-sheet: var(--elev-sheet);
   --shadow-chip: var(--elev-chip);
+  --shadow-cta: var(--elev-cta);
 
   /*
     섹션 라벨("시설 정보", "리뷰"처럼 내용 위에 붙는 작은 머리말).

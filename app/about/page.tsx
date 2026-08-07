@@ -90,7 +90,7 @@ export default function AboutPage() {
           </p>
           <Link
             href="/"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3 font-medium text-brand-ink shadow-float transition-colors hover:bg-brand-strong"
+            className="mt-8 inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3 font-medium text-brand-ink shadow-cta transition-colors hover:bg-brand-strong"
           >
             <Icon name="map" className="h-5 w-5" />
             지도 열기

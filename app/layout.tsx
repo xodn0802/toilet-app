@@ -33,6 +33,8 @@ export const viewport: Viewport = {
   // 지도를 두 손가락으로 확대할 때 페이지까지 같이 확대되면 UI 가 어긋난다.
   maximumScale: 1,
   // 주소창 뒤까지 배경을 채워 앱처럼 보이게 한다.
+  // 여기는 OS 설정으로만 갈린다 — 앱 안에서 테마를 직접 고르면 주소창 색은
+  // 안 따라온다. 화면 안은 data-theme 로 맞으므로 그대로 둔다.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f2f5f3" },
     { media: "(prefers-color-scheme: dark)", color: "#0d1412" },
@@ -45,7 +47,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`h-full antialiased ${wordmark.variable}`}>
+    <html
+      lang="ko"
+      className={`h-full antialiased ${wordmark.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/*
+          첫 페인트 전에 저장해 둔 테마를 붙인다. useEffect 로 미루면 라이트로
+          한 번 칠해진 뒤 다크로 바뀌어 흰 화면이 번쩍인다.
+
+          속성을 안 붙이는 경우가 "시스템"이다 — globals.css 의 color-scheme 이
+          `light dark` 라 그때 OS 설정을 따라간다. 그래서 여기서도 저장값이
+          있을 때만 붙이고, 없으면 아무것도 하지 않는다.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`,
+          }}
+        />
+      </head>
       {/*
         body 에 세로 flex 를 두지 않는다. 사이드바는 fixed 라 자리를 차지하지
         않고, 본문은 lg:ml-64 로 비켜설 뿐이다. flex 사슬을 만들면 지도까지
