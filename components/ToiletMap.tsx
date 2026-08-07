@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -123,7 +124,13 @@ function Notice({
   );
 }
 
-export default function ToiletMap() {
+type Props = {
+  /** 주소가 `?add=1` 이면 화장실 등록 모드로 연다. 사이드바 메뉴가 붙인다. */
+  initialAdd?: boolean;
+};
+
+export default function ToiletMap({ initialAdd = false }: Props) {
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const markersRef = useRef<{ id: string; marker: kakao.maps.Marker }[]>([]);
@@ -153,7 +160,24 @@ export default function ToiletMap() {
   /** 조회 상한에 걸려 일부만 왔는지. 확대를 권해야 한다. */
   const [truncated, setTruncated] = useState(false);
   /** 화장실 추가 모드. 켜져 있으면 지도를 위치 고르는 데 쓴다. */
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(initialAdd);
+
+  // 사이드바에서 눌러 들어오면 주소만 바뀌고 이 컴포넌트는 그대로 있다.
+  // 그래서 처음 값(useState)만으로는 두 번째부터 안 열린다.
+  useEffect(() => {
+    if (initialAdd) setAddOpen(true);
+  }, [initialAdd]);
+
+  /**
+   * 모드를 닫으면 주소에 남은 `?add=1` 도 지운다. 그대로 두면 새로고침할 때
+   * 다시 열리고, 사이드바에서 같은 링크를 눌러도 주소가 안 바뀌어 아무 일도
+   * 일어나지 않는다. history 를 직접 만지지 않고 router 로 바꿔야 Next 가 아는
+   * 주소와 실제 주소가 어긋나지 않는다.
+   */
+  const closeAdd = useCallback(() => {
+    setAddOpen(false);
+    if (initialAdd) router.replace("/", { scroll: false });
+  }, [initialAdd, router]);
 
   /**
    * 마커 클릭 리스너가 읽는 addOpen.
@@ -320,6 +344,30 @@ export default function ToiletMap() {
     syncViewport();
     kakao.maps.event.addListener(map, "idle", syncViewport);
   }, [sdkReady, center]);
+
+  /*
+    컨테이너 폭이 바뀌면 카카오에 알려야 한다. 1024px 경계를 넘나들면 사이드바가
+    생기고 사라져 지도 폭이 256px 달라지는데, relayout() 을 안 부르면 카카오는
+    예전 크기를 기준으로 좌표를 계산해 타일과 마커가 어긋난다.
+
+    조회 영역도 같이 갱신한다 — 넓어진 만큼 새로 보이는 곳의 화장실이 필요하고,
+    relayout() 만으로는 idle 이 오지 않는다.
+  */
+  useEffect(() => {
+    const map = mapInstance;
+    const element = containerRef.current;
+    if (!map || !element) return;
+
+    const observer = new ResizeObserver(() => {
+      map.relayout();
+      setViewport((prev) => {
+        const next = readBounds(map);
+        return sameBounds(prev, next) ? prev : next;
+      });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [mapInstance]);
 
   // 위치를 나중에 받아왔을 때 중심을 옮긴다.
   useEffect(() => {
@@ -696,7 +744,7 @@ export default function ToiletMap() {
           <AddToilet
             map={mapInstance}
             toilets={toilets ?? []}
-            onClose={() => setAddOpen(false)}
+            onClose={closeAdd}
           />
         )}
 

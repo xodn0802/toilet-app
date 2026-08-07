@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Black_Han_Sans } from "next/font/google";
+
+import SideNav, { SideNavProvider } from "@/components/SideNav";
+
 import "./globals.css";
 
 /*
@@ -43,7 +46,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className={`h-full antialiased ${wordmark.variable}`}>
-      <body className="flex h-full flex-col overscroll-none">{children}</body>
+      {/*
+        body 에 세로 flex 를 두지 않는다. 사이드바는 fixed 라 자리를 차지하지
+        않고, 본문은 lg:ml-64 로 비켜설 뿐이다. flex 사슬을 만들면 지도까지
+        이어지는 h-full 이 무너져 흰 화면이 된다(CLAUDE.md "지도 레이아웃 주의").
+      */}
+      <body className="h-full overscroll-none">
+        <SideNavProvider>
+          <SideNav />
+          <div className="h-full lg:ml-64">{children}</div>
+        </SideNavProvider>
+      </body>
     </html>
   );
 }
