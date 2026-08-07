@@ -78,8 +78,16 @@ export default function ToiletDetailSheet({
       : null;
 
   return (
+    /*
+      좁은 화면에서는 아래에서 올라오는 시트, 넓은 화면에서는 지도 위에 뜬 카드다.
+      컴포넌트를 둘로 쪼개지 않고 반응형 클래스만 얹는다 — 두 벌로 만들면 한쪽만
+      고쳐지는 날이 온다(`dark:` 를 금지한 이유와 같다). 내용·순서·문구는 같다.
+
+      데스크톱에는 접기/펼치기가 없다. 세로가 충분해서 접을 이유가 없고, 지도는
+      카드 옆으로 계속 보인다. 그래서 expanded 는 사실상 모바일 전용 state 다.
+    */
     <div
-      className={`absolute inset-x-0 bottom-0 z-10 flex flex-col overflow-hidden rounded-t-3xl bg-surface shadow-sheet transition-[max-height] duration-300 ease-out ${
+      className={`absolute inset-x-0 bottom-0 z-10 flex flex-col overflow-hidden rounded-t-3xl bg-surface shadow-sheet transition-[max-height] duration-300 ease-out lg:inset-x-auto lg:top-20 lg:bottom-auto lg:left-4 lg:max-h-[calc(100%-7rem)] lg:w-[400px] lg:rounded-2xl lg:shadow-float ${
         expanded ? "max-h-[88%]" : "max-h-64"
       }`}
     >
@@ -88,12 +96,13 @@ export default function ToiletDetailSheet({
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
         aria-label={expanded ? "상세 접기" : "상세 펼치기"}
-        className="shrink-0 pt-2.5 pb-1"
+        className="shrink-0 pt-2.5 pb-1 lg:hidden"
       >
         <span className="mx-auto block h-1 w-10 rounded-full bg-line" />
       </button>
 
-      <div className="shrink-0 px-5 pb-4">
+      {/* 핸들이 없는 데스크톱에서는 위 여백을 여기서 낸다. */}
+      <div className="shrink-0 px-5 pb-4 lg:pt-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -170,7 +179,7 @@ export default function ToiletDetailSheet({
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
             aria-expanded={expanded}
-            className="shrink-0 rounded-xl border border-line px-4 py-3 text-sm font-medium text-muted hover:bg-sunken"
+            className="shrink-0 rounded-xl border border-line px-4 py-3 text-sm font-medium text-muted hover:bg-sunken lg:hidden"
           >
             {expanded ? "접기" : "더보기"}
           </button>
@@ -178,7 +187,7 @@ export default function ToiletDetailSheet({
       </div>
 
       <div
-        className={`min-h-0 flex-1 px-5 pb-8 ${
+        className={`min-h-0 flex-1 px-5 pb-8 lg:overflow-y-auto lg:overscroll-contain ${
           expanded ? "overflow-y-auto overscroll-contain" : "overflow-hidden"
         }`}
       >
@@ -196,7 +205,7 @@ export default function ToiletDetailSheet({
 
       {/* 접힌 상태에서 잘린 내용이 그냥 끊긴 게 아니라 이어진다는 표시. */}
       {!expanded && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-surface to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-surface to-transparent lg:hidden" />
       )}
     </div>
   );

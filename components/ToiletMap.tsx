@@ -672,32 +672,43 @@ export default function ToiletMap({ initialAdd = false }: Props) {
             nickname={identity.who?.nickname ?? null}
           />
 
-          {routeState.status !== "idle" && (
-            <div className="pointer-events-auto w-full">
-              <RouteBanner
-                state={routeState}
-                originUncertain={locationCoarse}
-                onCancel={() => setRouteState({ status: "idle" })}
-              />
-            </div>
-          )}
+          {/*
+            데스크톱에서는 상세가 왼쪽 400px 카드로 뜬다. 앱바는 그 위(top-20
+            보다 높은 자리)라 안 겹치지만 아래 줄들은 겹치므로 카드가 열려
+            있는 동안만 비켜선다. 빈 채로 두면 gap 만 남으므로 empty:hidden.
+          */}
+          <div
+            className={`flex w-full flex-col items-start gap-2 empty:hidden ${
+              selected ? "lg:pl-[27rem]" : ""
+            }`}
+          >
+            {routeState.status !== "idle" && (
+              <div className="pointer-events-auto w-full">
+                <RouteBanner
+                  state={routeState}
+                  originUncertain={locationCoarse}
+                  onCancel={() => setRouteState({ status: "idle" })}
+                />
+              </div>
+            )}
 
-          {truncated && (
-            <Notice tone="signal">
-              이 범위에는 화장실이 너무 많습니다 · 확대해서 보세요
-            </Notice>
-          )}
+            {truncated && (
+              <Notice tone="signal">
+                이 범위에는 화장실이 너무 많습니다 · 확대해서 보세요
+              </Notice>
+            )}
 
-          {toiletsError && <Notice tone="error">{toiletsError}</Notice>}
-          {reviewsError && <Notice tone="error">{reviewsError}</Notice>}
-          {locationMessage && (
-            <Notice
-              tone={locationCoarse ? "signal" : "muted"}
-              busy={locationState === "pending"}
-            >
-              {locationMessage}
-            </Notice>
-          )}
+            {toiletsError && <Notice tone="error">{toiletsError}</Notice>}
+            {reviewsError && <Notice tone="error">{reviewsError}</Notice>}
+            {locationMessage && (
+              <Notice
+                tone={locationCoarse ? "signal" : "muted"}
+                busy={locationState === "pending"}
+              >
+                {locationMessage}
+              </Notice>
+            )}
+          </div>
         </div>
 
         {/*
@@ -710,7 +721,8 @@ export default function ToiletMap({ initialAdd = false }: Props) {
         {!addOpen && (
           <div
             className={`absolute right-4 z-10 flex flex-col gap-3 transition-[bottom] duration-300 ease-out ${
-              selected ? "bottom-60" : "bottom-6"
+              // 데스크톱에서는 상세가 왼쪽 카드라 버튼이 비켜설 이유가 없다.
+              selected ? "bottom-60 lg:bottom-6" : "bottom-6"
             }`}
           >
             <button
