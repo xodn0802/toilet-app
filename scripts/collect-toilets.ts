@@ -7,8 +7,8 @@
  * (geocode-toilets.ts)가 주소를 지오코딩해 채운다.
  *
  * 실행:
- *   node --env-file=.env.local scripts/collect-toilets.ts [지역]
- *   node --env-file=.env.local scripts/collect-toilets.ts 인천    (기본값)
+ *   node --env-file=.env.local scripts/collect-toilets.ts          ← 전국 전량
+ *   node --env-file=.env.local scripts/collect-toilets.ts 인천     ← 특정 지역만
  *
  * 필요한 환경변수 (.env.local):
  *   DATA_GO_KR_SERVICE_KEY   ← 디코딩 키. 아래 "인증키" 주석 참고.
@@ -42,14 +42,24 @@ const PAGE_DELAY_MS = 120;
 const MAX_RETRY = 3;
 
 /**
- * 수집할 지역. 소재지도로명주소에 이 문자열이 들어간 행만 받는다
+ * 수집할 지역. **인자가 없으면 전국 전량이다.**
+ *
+ * 지역을 주면 소재지도로명주소에 그 문자열이 든 행만 받는다
  * (cond[LCTN_ROAD_NM_ADDR::LIKE]).
  *
- * 도로명주소가 비어 있고 지번주소만 있는 행은 이 조건으로 걸러진다. 그 대신
- * 전국 6만여 건을 받아 거르는 방법이 있는데, 호출이 600회로 늘고 대부분이
- * 버려진다. 실제 누락이 얼마나 되는지는 첫 실행 로그의 총 건수로 판단한다.
+ * 전국을 시도별 루프로 받지 않는 이유 (2026-08-10 실측) — 접두 일치가 새는 곳이
+ * 두 군데다. ① 데이터에 **`전남광주통합특별시`** 라는 통합 개편 지명이 들어와 있어
+ * "광주광역시"·"전라남도"로는 각각 0건·5건만 잡힌다(실제로는 4,973건).
+ * ② `울산 울주군 …` 처럼 **시도명이 축약된 행**이 섞여 있다. 17개 시도를 다 돌아도
+ * 42,195건뿐이라 **전체 53,552건 중 21%를 놓친다.**
+ *
+ * 그래서 전국은 조건 없이 전량을 받는다. 호출이 536회로 늘지만 버려지는 것이 없고,
+ * 지역 필터 때문에 필요했던 예외 처리(isOutsideRegion)도 같이 사라진다.
+ *
+ * 이 파일은 원래 "전국을 받으면 대부분이 버려진다"고 적어 두고 지역 필터를 골랐다.
+ * 그 판단은 인천만 쓰던 때의 것이고, 목적이 전국으로 바뀌면서 뒤집혔다.
  */
-const REGION = process.argv[2] ?? "인천";
+const REGION = process.argv[2] ?? null;
 
 // ---------------------------------------------------------------------------
 // API 응답 — 필드명은 swagger 명세(2026-06-05 기준)에서 확인한 것이다.
@@ -182,7 +192,8 @@ function isClosedToPublic(item: ApiItem): boolean {
 }
 
 /**
- * 다른 지역이 딸려 온 것을 걸러낸다.
+ * 다른 지역이 딸려 온 것을 걸러낸다. **전국 수집에서는 하지 않는다** — 전량을
+ * 받으므로 걸러낼 "다른 지역"이 없다.
  *
  * API 의 LIKE 조건은 주소 **어디에든** 그 문자열이 있으면 잡는다. "인천"으로
  * 받으면 "충청남도 논산시 양촌면 **인천**리"가 함께 온다(실측 2건). 좌표는
@@ -190,9 +201,11 @@ function isClosedToPublic(item: ApiItem): boolean {
  * 그냥 없는 데이터가 된다.
  *
  * 한국 주소는 시도명으로 시작하므로 **접두 일치**면 충분하다. 지번주소만 있는
- * 행도 있어 둘 중 하나라도 REGION 으로 시작하면 통과시킨다.
+ * 행도 있어 둘 중 하나라도 REGION 으로 시작하면 통과시킨다. 이 규칙이 새는
+ * 경우는 REGION 주석에 적어 뒀다 — 그래서 전국은 필터를 안 쓴다.
  */
 function isOutsideRegion(item: ApiItem): boolean {
+  if (REGION === null) return false;
   const road = text(item.LCTN_ROAD_NM_ADDR) ?? "";
   const jibun = text(item.LCTN_LOTNO_ADDR) ?? "";
   return !road.startsWith(REGION) && !jibun.startsWith(REGION);
@@ -261,8 +274,16 @@ async function fetchPage(
     pageNo: String(pageNo),
     numOfRows: String(PAGE_SIZE),
     returnType: "json",
-    "cond[LCTN_ROAD_NM_ADDR::LIKE]": REGION,
   });
+
+  // 지역 인자가 있을 때만 필터를 건다.
+  //
+  // 이 키는 URLSearchParams 가 대괄호·콜론을 %5B·%3A%3A·%5D 로 인코딩해 줘야
+  // 먹는다. 날것으로 보내면 API 가 **에러 없이 totalCount:0 을** 돌려주므로
+  // 데이터가 없는 것과 구별되지 않는다(2026-08-10 조사 중 실제로 헛다리를 짚었다).
+  if (REGION !== null) {
+    params.set("cond[LCTN_ROAD_NM_ADDR::LIKE]", REGION);
+  }
 
   const response = await fetch(`${API_URL}?${params}`);
   const body = await response.text();
@@ -320,7 +341,11 @@ async function main() {
     { auth: { persistSession: false } },
   );
 
-  console.log(`"${REGION}" 도로명주소를 가진 공중화장실을 수집합니다.`);
+  console.log(
+    REGION === null
+      ? "전국 공중화장실을 전량 수집합니다."
+      : `"${REGION}" 도로명주소를 가진 공중화장실을 수집합니다.`,
+  );
 
   const rows = new Map<string, ToiletRow>();
   let received = 0;
@@ -334,7 +359,8 @@ async function main() {
     const page = await fetchPageWithRetry(serviceKey, pageNo);
     if (pageNo === 1) {
       totalCount = page.totalCount;
-      console.log(`총 ${totalCount}건 · ${PAGE_SIZE}건씩 받습니다.`);
+      const pages = Math.ceil(totalCount / PAGE_SIZE);
+      console.log(`총 ${totalCount}건 · ${PAGE_SIZE}건씩 ${pages}쪽.`);
       if (totalCount === 0) break;
     }
 
@@ -357,7 +383,12 @@ async function main() {
       rows.set(row.external_id, row);
     }
 
-    process.stdout.write(`\r  받는 중… ${received}/${totalCount}`);
+    // 전국은 536쪽이라 쪽마다 줄을 남기면 로그가 못 읽을 만큼 길어진다.
+    // \r 로 한 줄을 덮어쓰고 쪽 번호를 같이 적어 어디까지 갔는지만 보인다.
+    const percent = Math.floor((received / totalCount) * 100);
+    process.stdout.write(
+      `\r  받는 중… ${pageNo}쪽 · ${received}/${totalCount} (${percent}%)`,
+    );
 
     if (page.items.length < PAGE_SIZE || received >= totalCount) break;
     await sleep(PAGE_DELAY_MS);
@@ -366,7 +397,7 @@ async function main() {
   console.log(
     `\n받은 건수 ${received} · 넣을 건수 ${rows.size}` +
       ` · 미개방이라 건너뜀 ${skippedClosed}` +
-      ` · 다른 지역이라 건너뜀 ${skippedOtherRegion}` +
+      (REGION === null ? "" : ` · 다른 지역이라 건너뜀 ${skippedOtherRegion}`) +
       ` · 주소·이름 없어 건너뜀 ${skippedNoAddress}` +
       (duplicates > 0 ? ` · external_id 중복 ${duplicates}(뒤 값 유지)` : ""),
   );
