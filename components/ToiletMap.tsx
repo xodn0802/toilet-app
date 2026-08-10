@@ -23,8 +23,14 @@ import { formatDistance } from "@/lib/route/types";
 import { groupByCoords, type ToiletGroup } from "@/lib/toilets/cluster";
 import { fetchToilets } from "@/lib/toilets/fetch-toilets";
 import {
+  nearbyCandidates,
+  pickBest,
+  type GuidePick,
+} from "@/lib/toilets/pick-best";
+import {
   NEARBY_RADIUS_M,
   nearbyLabel,
+  RADIUS_LABEL,
   summarizeNearby,
 } from "@/lib/toilets/nearby";
 import { isMappable, type MappableToilet } from "@/lib/toilets/types";
@@ -183,6 +189,20 @@ export default function ToiletMap({ initialAdd = false }: Props) {
   /** 브라우저가 알려준 오차 반경(m). 위치를 못 받았으면 null. */
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [routeState, setRouteState] = useState<RouteState>({ status: "idle" });
+  /**
+   * 「바로 안내」가 고른 근거. **어느 화장실의 것인지를 같이 담는다** — 안 담으면
+   * 그 뒤에 다른 마커를 직접 눌러 길찾기를 해도 앞의 근거 문구가 그대로 남아
+   * 사용자가 고른 곳을 앱이 고른 것처럼 말하게 된다. groupRatings 가 key 를
+   * 담는 것과 같은 이유다.
+   */
+  const [guide, setGuide] = useState<{
+    toiletId: string;
+    reason: GuidePick["reason"];
+  } | null>(null);
+  /** 후보의 별점을 받는 동안. 버튼이 반응 없이 멈춘 것처럼 보이지 않게 한다. */
+  const [guideBusy, setGuideBusy] = useState(false);
+  /** 반경 안에 아무것도 없었다. 다음 시도에서 지워진다. */
+  const [guideEmpty, setGuideEmpty] = useState(false);
   const [toiletsError, setToiletsError] = useState<string | null>(null);
   /** 지도가 보고 있는 영역. 지도가 생기기 전에는 null 이라 조회를 미룬다. */
   const [viewport, setViewport] = useState<Bounds | null>(null);
@@ -335,8 +355,15 @@ export default function ToiletMap({ initialAdd = false }: Props) {
     };
   }, [selectedId]);
 
-  // 현재 위치. 거부·실패해도 기본 중심으로 지도는 그대로 뜬다.
-  useEffect(() => {
+  /**
+   * 현재 위치를 묻는다. 거부·실패해도 기본 중심으로 지도는 그대로 뜬다.
+   *
+   * state 는 브라우저 콜백 안에서만 건드린다. 여기서 바로 setLocationState 를
+   * 부르면 아래 마운트 effect 가 "effect 안 동기 setState" 가 돼 버린다
+   * (react-hooks/set-state-in-effect). 초기값이 이미 pending 이라 마운트
+   * 때는 되돌릴 것도 없다.
+   */
+  const askLocation = useCallback(() => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setCenter({
@@ -350,6 +377,20 @@ export default function ToiletMap({ initialAdd = false }: Props) {
       { enableHighAccuracy: true, timeout: 8000 },
     );
   }, []);
+
+  useEffect(() => {
+    askLocation();
+  }, [askLocation]);
+
+  /**
+   * 「바로 안내」가 위치 없이 눌렸을 때 다시 묻는다. 한 번 거부한 사람이 마음을
+   * 바꿀 자리가 그것뿐이다 — 브라우저가 다시 물을지는 브라우저가 정하지만,
+   * 안 물으면 실패 콜백이 같은 안내를 다시 띄운다.
+   */
+  const requestLocation = useCallback(() => {
+    setLocationState("pending");
+    askLocation();
+  }, [askLocation]);
 
   // 지도 생성. mapRef 가 채워져 있으면 다시 만들지 않는다.
   useEffect(() => {
@@ -577,36 +618,83 @@ export default function ToiletMap({ initialAdd = false }: Props) {
     return () => polyline.setMap(null);
   }, [routeState, sdkReady]);
 
-  const handleNavigate = useCallback(async () => {
-    const toilet = selected;
-    if (!toilet || locationState !== "granted") return;
+  /**
+   * 화장실을 인자로 받는다. selected 를 읽으면 「바로 안내」가 못 쓴다 —
+   * setSelected 직후에는 아직 옛 값이라 엉뚱한 곳으로 경로를 그린다.
+   */
+  const navigateTo = useCallback(
+    async (toilet: MappableToilet | null) => {
+      if (!toilet || locationState !== "granted") return;
 
-    setRouteState({ status: "loading", toilet });
+      setRouteState({ status: "loading", toilet });
 
-    // 요청 중에 다른 화장실로 옮겨갔다면 늦게 온 응답은 버린다.
-    const applyIfCurrent = (next: RouteState) =>
-      setRouteState((prev) =>
-        prev.status === "loading" && prev.toilet.id === toilet.id ? next : prev,
-      );
+      // 요청 중에 다른 화장실로 옮겨갔다면 늦게 온 응답은 버린다.
+      const applyIfCurrent = (next: RouteState) =>
+        setRouteState((prev) =>
+          prev.status === "loading" && prev.toilet.id === toilet.id
+            ? next
+            : prev,
+        );
 
-    try {
-      const route = await fetchWalkRoute({
-        start: center,
-        end: { lat: toilet.lat, lng: toilet.lng },
-        endName: toilet.name,
-      });
-      applyIfCurrent({ status: "ready", toilet, route });
-    } catch (error) {
-      applyIfCurrent({
-        status: "error",
-        toilet,
-        message:
-          error instanceof Error
-            ? error.message
-            : "경로를 불러오지 못했습니다.",
-      });
+      try {
+        const route = await fetchWalkRoute({
+          start: center,
+          end: { lat: toilet.lat, lng: toilet.lng },
+          endName: toilet.name,
+        });
+        applyIfCurrent({ status: "ready", toilet, route });
+      } catch (error) {
+        applyIfCurrent({
+          status: "error",
+          toilet,
+          message:
+            error instanceof Error
+              ? error.message
+              : "경로를 불러오지 못했습니다.",
+        });
+      }
+    },
+    [center, locationState],
+  );
+
+  /**
+   * 「바로 안내」 — 버튼 하나로 갈 곳을 정하고 경로까지 그린다.
+   *
+   * 위치 권한이 없으면 다시 요청한다. 버튼을 감추면 왜 없는지 알 수 없고,
+   * 눌러도 아무 일이 없으면 고장으로 읽힌다.
+   */
+  const handleGuide = useCallback(async () => {
+    if (locationState !== "granted") {
+      requestLocation();
+      return;
     }
-  }, [selected, center, locationState]);
+
+    const candidates = nearbyCandidates(toilets ?? [], center);
+    setGuideEmpty(candidates.length === 0);
+    if (candidates.length === 0) return;
+
+    setGuideBusy(true);
+    // 별점을 못 받아도 안내는 한다. 그러면 pickBest 가 nearest 로 떨어질 뿐이라
+    // 리뷰가 아직 없는 지역과 같은 결과가 된다 — 급한 사람을 빈손으로 두지 않는다.
+    const ratings = await fetchRatingsFor(
+      candidates.map((it) => it.toilet.id),
+    ).catch(() => EMPTY_RATINGS);
+    setGuideBusy(false);
+
+    const pick = pickBest(candidates, ratings);
+    if (!pick) return;
+
+    setGuide({ toiletId: pick.toilet.id, reason: pick.reason });
+    chooseToilet(pick.toilet);
+    navigateTo(pick.toilet);
+  }, [
+    locationState,
+    requestLocation,
+    toilets,
+    center,
+    chooseToilet,
+    navigateTo,
+  ]);
 
   const handleSubmitReview = useCallback(
     async (draft: ReviewDraft) => {
@@ -762,9 +850,20 @@ export default function ToiletMap({ initialAdd = false }: Props) {
                 <RouteBanner
                   state={routeState}
                   originUncertain={locationCoarse}
+                  reason={
+                    guide?.toiletId === routeState.toilet.id
+                      ? guide.reason
+                      : undefined
+                  }
                   onCancel={() => setRouteState({ status: "idle" })}
                 />
               </div>
+            )}
+
+            {guideEmpty && (
+              <Notice tone="signal">
+                {RADIUS_LABEL} 이내에 화장실이 없어요 · 지도를 옮겨 찾아보세요
+              </Notice>
             )}
 
             {truncated && (
@@ -828,6 +927,27 @@ export default function ToiletMap({ initialAdd = false }: Props) {
           </div>
         )}
 
+        {/*
+          「바로 안내」 — 들어가자마자 누르는 버튼이라 오른쪽 아래 FAB 스택이
+          아니라 하단 중앙에 둔다. 상세·목록이 열렸으면 그 안에 이미 길찾기
+          버튼이 있고, 추가 모드에서는 지도가 "어디에 둘지"를 묻는 화면이다.
+        */}
+        {!selected && !group && !addOpen && (
+          <div className="absolute inset-x-0 bottom-6 z-10 flex justify-center px-24">
+            <button
+              type="button"
+              onClick={handleGuide}
+              disabled={!sdkReady || guideBusy || toilets === null}
+              className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full bg-brand px-5 py-3 font-semibold text-brand-ink shadow-float hover:bg-brand-strong disabled:bg-surface disabled:text-muted"
+            >
+              <Icon name="directions" className="h-5 w-5 shrink-0" />
+              <span className="truncate">
+                {guideBusy ? "찾는 중…" : "가장 가까운 화장실 안내"}
+              </span>
+            </button>
+          </div>
+        )}
+
         {addOpen && mapInstance && (
           <AddToilet
             map={mapInstance}
@@ -864,7 +984,7 @@ export default function ToiletMap({ initialAdd = false }: Props) {
             gate={selectedGate}
             nickname={identity.who?.nickname ?? null}
             onSubmitReview={handleSubmitReview}
-            onNavigate={handleNavigate}
+            onNavigate={() => navigateTo(selected)}
             onClose={() => setSelected(null)}
           />
         )}

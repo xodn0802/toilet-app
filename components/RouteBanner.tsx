@@ -2,6 +2,7 @@
 
 import type { RouteState } from "@/lib/route/state";
 import { formatDistance, formatDuration } from "@/lib/route/types";
+import { GUIDE_CANDIDATE_COUNT, type GuidePick } from "@/lib/toilets/pick-best";
 
 type Props = {
   /** idle 이 아닌 상태만 받는다. 배너는 길찾기가 시작된 뒤에만 뜬다. */
@@ -13,7 +14,17 @@ type Props = {
    * 막지는 않지만 숫자를 그대로 두면 사용자가 맞는 줄 안다.
    */
   originUncertain?: boolean;
+  /**
+   * 「바로 안내」가 고른 곳일 때만 온다. 사용자가 마커를 직접 누른 경우에는
+   * 없다 — 자기가 고른 곳에 왜 그 곳인지를 설명할 이유가 없다.
+   */
+  reason?: GuidePick["reason"];
   onCancel: () => void;
+};
+
+const REASON_LABEL: Record<GuidePick["reason"], string> = {
+  cleanest: `가까운 ${GUIDE_CANDIDATE_COUNT}곳 중 가장 깨끗한 곳`,
+  nearest: "가장 가까운 곳",
 };
 
 function subtitle(state: Props["state"]): string {
@@ -32,6 +43,7 @@ function subtitle(state: Props["state"]): string {
 export default function RouteBanner({
   state,
   originUncertain = false,
+  reason,
   onCancel,
 }: Props) {
   const isError = state.status === "error";
@@ -54,6 +66,10 @@ export default function RouteBanner({
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{state.toilet.name}</p>
         <p className="truncate text-sm opacity-80">{subtitle(state)}</p>
+        {/* 왜 이 곳으로 보냈는지. 버튼이 대신 고른 것이므로 근거가 보여야 한다. */}
+        {reason && (
+          <p className="truncate text-xs opacity-80">{REASON_LABEL[reason]}</p>
+        )}
         {originUncertain && (
           <p className="truncate text-xs opacity-80">
             현재 위치가 부정확해 출발지가 다를 수 있습니다

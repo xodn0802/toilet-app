@@ -19,7 +19,7 @@ import type { MappableToilet } from "./types";
 export const NEARBY_RADIUS_M = 1000;
 
 /** 문구에 쓰는 반경 표기. 상수에서 끌어내 둘이 어긋나지 않게 한다. */
-const RADIUS_LABEL = `${NEARBY_RADIUS_M / 1000}km`;
+export const RADIUS_LABEL = `${NEARBY_RADIUS_M / 1000}km`;
 
 export type NearbySummary =
   /** 기준점이 없거나 못 믿는 상태. 반경을 주장하지 않고 개수만 말한다. */
