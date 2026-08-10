@@ -13,11 +13,17 @@ export const metadata: Metadata = {
 /*
   이 페이지에 적는 숫자와 문장은 전부 실제 동작이어야 한다. 없는 기능을 소개에만
   적어 두면 그게 가장 먼저 거짓말이 된다(계획의 "껍데기 UI 금지"). 그래서
-  즐겨찾기·검색·필터·사진 이야기는 없고, 인천만 수집했다는 것도 그대로 적는다.
+  즐겨찾기·검색·필터·사진 이야기는 없고, 지오코딩에 실패해 지도에 못 뜨는
+  1,620곳이 있다는 것도 숫자를 부풀리지 않는 쪽으로 적는다.
 */
 
-/** 인천 공중화장실 지오코딩 성공분. scripts/ 실측치(2026-08-03). */
-const TOILET_COUNT = "2,130";
+/**
+ * 지도에 실제로 뜨는 곳 수 = `geocode_status='ok'` 행 수. 실측(2026-08-10).
+ *
+ * 적재는 52,751건이지만 1,620건은 주소를 좌표로 못 바꿔 지도에 안 뜬다. 여기
+ * 적는 숫자는 **사용자가 화면에서 볼 수 있는 것**이어야 하므로 적재 수가 아니다.
+ */
+const TOILET_COUNT = "51,131";
 
 function Card({
   icon,
@@ -85,8 +91,7 @@ export default function AboutPage() {
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted">
             현재 위치를 기준으로 주변 화장실을 지도에 표시하고, 도보 경로까지
-            안내합니다. 지금은 인천 {TOILET_COUNT}곳의 공중화장실을 담고
-            있습니다.
+            안내합니다. 전국 공중화장실 {TOILET_COUNT}곳을 담고 있습니다.
           </p>
           <Link
             href="/"
@@ -232,7 +237,107 @@ export default function AboutPage() {
                   않습니다 — 신고·삭제 절차가 함께 있어야 하기 때문입니다.
                 </dd>
               </div>
+              {/*
+                모으는 것 하나를 이 목록에 같이 적는다. "안 모은다"만 늘어놓고
+                방문 통계를 아래 고지에만 숨겨 두면 그게 빠뜨린 거짓말이 된다.
+              */}
+              <div>
+                <dt className="font-bold text-ink">
+                  다만 몇 명이 왔는지는 셉니다
+                </dt>
+                <dd className="mt-1">
+                  쿠키 없이 방문 수와 유입 경로만 봅니다. 누가 어디를 눌렀는지는
+                  모으지 않습니다. 자세한 것은 아래 처리방침에 적어 두었습니다.
+                </dd>
+              </div>
             </dl>
+          </div>
+        </section>
+
+        {/*
+          idea.md 유의사항 ③ — "현재 위치 사용에 대한 별도 동의를 받는다".
+          권한 창은 브라우저가 띄우지만 그것만으로는 좌표가 어디까지 가는지
+          알 수 없다. 별도 페이지를 만들지 않는 이유는 사이드바 메뉴를 정할 때와
+          같다 — 페이지 하나를 세울 만큼 내용이 많지 않다.
+
+          여기 적는 것도 전부 실제 동작이어야 한다. 안 하는 일을 "하지 않습니다"
+          라고 적는 것은 괜찮지만, 하는 일을 빠뜨리면 그건 거짓말이다.
+        */}
+        <section className="mb-14">
+          <h2 className="mb-5 text-label text-muted">개인정보 처리방침</h2>
+          <div className="rounded-2xl border border-line bg-surface p-6 md:p-8">
+            <dl className="space-y-5 text-sm leading-relaxed text-muted">
+              <div>
+                <dt className="font-bold text-ink">현재 위치</dt>
+                <dd className="mt-1">
+                  브라우저가 묻고, 허용해야만 씁니다. 주변 화장실을 세고 거리를
+                  재고 경로를 그리는 데만 쓰며{" "}
+                  <span className="font-medium text-ink">
+                    좌표를 서버에 저장하지 않습니다.
+                  </span>{" "}
+                  거부해도 지도는 그대로 쓸 수 있습니다 — 거리처럼 기준점이
+                  있어야 하는 것만 표시되지 않습니다.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-bold text-ink">도보 경로</dt>
+                <dd className="mt-1">
+                  길찾기를 누른 그때만 출발지·도착지 좌표가 SK텔레콤 TMAP 보행자
+                  경로 API 로 갑니다. 받아온 경로는 화면에 그리고 끝입니다 —
+                  TMAP 약관이 24시간 이상 보관을 금지하고 있어 저장하지
+                  않습니다.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-bold text-ink">리뷰</dt>
+                <dd className="mt-1">
+                  별점·상태 태그·한 줄 평, 그리고 자동으로 만들어진 별명이
+                  Supabase 에 저장됩니다. 이메일·이름·전화번호는 받지 않고, 이
+                  브라우저의 저장 데이터를 지우면 그 별명으로는 다시 들어올 수
+                  없습니다. 남긴 리뷰를 지우고 싶다면 아래로 알려 주세요.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-bold text-ink">화장실 제보</dt>
+                <dd className="mt-1">
+                  적어 보낸 위치·주소·시설 정보만 검토 목록에 쌓입니다. 누가
+                  보냈는지는 남기지 않습니다.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-bold text-ink">방문 통계</dt>
+                <dd className="mt-1">
+                  Vercel Web Analytics 를 씁니다. 쿠키를 쓰지 않고 개인을
+                  식별하지 않으며, 어떤 페이지가 몇 번 열렸고 어디서
+                  들어왔는지만 봅니다. 화면 안에서 무엇을 눌렀는지는 모으지
+                  않습니다.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-bold text-ink">지도</dt>
+                <dd className="mt-1">
+                  지도 타일과 주소 변환은 카카오맵 SDK 가 맡습니다. 지도를 여는
+                  것만으로 카카오에 요청이 갑니다.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-bold text-ink">문의·삭제 요청</dt>
+                <dd className="mt-1">
+                  <a
+                    href="https://github.com/xodn0802/toilet-app/issues"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-brand hover:underline"
+                  >
+                    GitHub 저장소의 이슈
+                  </a>
+                  로 남겨 주세요.
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-6 border-t border-line pt-4 text-xs text-muted">
+              마지막 갱신 2026-08-10
+            </p>
           </div>
         </section>
 
@@ -242,13 +347,14 @@ export default function AboutPage() {
             <Faq q="화장실 정보는 어디서 가져오나요?">
               행정안전부의 공중화장실 정보(공공데이터포털)입니다. 여기에는
               좌표가 없어 주소를 좌표로 바꿔 지도에 찍습니다. 그래서 주소가 부지
-              단위인 곳(대학 캠퍼스·공원 등)은 여러 건이 한 지점에 겹쳐 보일 수
-              있습니다.
+              단위인 곳(대학 캠퍼스·공원 등)은 여러 건이 같은 지점에 놓입니다 —
+              그런 마커에는 개수가 붙고, 누르면 그 자리의 목록이 열립니다.
             </Faq>
             <Faq q="제 주변에는 아무것도 안 보여요.">
-              지금은 인천 {TOILET_COUNT}곳만 담겨 있습니다. 다른 지역은 아직
-              수집하지 않았습니다 — 지도가 비어 보인다면 화장실이 없는 게 아니라
-              데이터가 없는 것입니다.
+              전국 {TOILET_COUNT}곳을 담고 있지만, 공공데이터에 등록된
+              공중화장실 뿐입니다. 카페·상가처럼 실제로 많이 쓰는 곳은 원본에
+              아예 없어서 비어 보일 수 있습니다. 아는 곳이 있다면 제보해 주세요.
+              주소를 좌표로 바꾸지 못해 지도에 못 올린 곳도 1,620곳 있습니다.
             </Faq>
             <Faq q="정보가 실제와 다릅니다.">
               청결도·휴지·비누처럼 자주 바뀌는 것은 리뷰로 남겨 주세요. 가장
