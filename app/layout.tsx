@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Black_Han_Sans } from "next/font/google";
 
@@ -77,6 +78,15 @@ export default function RootLayout({
           <SideNav />
           <div className="h-full lg:ml-64">{children}</div>
         </SideNavProvider>
+        {/*
+          방문 통계. 하루에 몇 명이 오는지, 어디서 들어왔는지(referrer)를 보려는
+          것이다 — 에브리타임 홍보가 실제로 사람을 데려오는지 이걸로만 알 수 있다.
+
+          쿠키를 쓰지 않고 개인을 식별하지 않는다. 그래서 동의 배너가 없다.
+          Vercel 대시보드에서 Web Analytics 를 켜야 실제로 쌓인다. 로컬·프리뷰
+          에서는 스크립트가 요청을 보내지 않으므로 개발 중에는 아무 일도 안 한다.
+        */}
+        <Analytics />
       </body>
     </html>
   );
