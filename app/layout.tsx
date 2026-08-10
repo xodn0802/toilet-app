@@ -22,12 +22,39 @@ const wordmark = Black_Han_Sans({
   variable: "--font-black-han-sans",
 });
 
+const TITLE = "뿡 — 가까운 화장실 찾기";
+const DESCRIPTION =
+  "낯선 곳에서 가까운 화장실을 찾고, 청결도·편의시설·이용조건까지 확인하세요.";
+
 export const metadata: Metadata = {
-  title: "뿡 — 가까운 화장실 찾기",
-  description:
-    "낯선 곳에서 가까운 화장실을 찾고, 청결도·편의시설·이용조건까지 확인하세요.",
+  /*
+    OG 태그의 이미지 주소는 절대 경로여야 한다. 이 값이 없으면 상대 경로로 나가고,
+    링크를 긁는 쪽은 그것을 못 읽어 미리보기가 통째로 빈다.
+
+    프로덕션 주소를 박아 둔다 — 배포별 URL 로 미리보기가 뜨면 그 주소는 다음
+    배포에 사라지고, 카카오 지도도 그 도메인에서는 안 뜬다(CLAUDE.md 참고).
+  */
+  metadataBase: new URL("https://toilet-app-azure.vercel.app"),
+  title: TITLE,
+  description: DESCRIPTION,
   applicationName: "뿡",
   appleWebApp: { capable: true, title: "뿡", statusBarStyle: "default" },
+  // 그림은 app/opengraph-image.tsx 가 만든다. 여기서 다시 가리키지 않아도
+  // Next 가 og:image 를 채운다.
+  openGraph: {
+    type: "website",
+    siteName: "뿡",
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "/",
+    locale: "ko_KR",
+  },
+  // 큰 카드로 보여 달라는 뜻. 이 줄이 없으면 일부 서비스가 작은 썸네일로 만다.
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {
