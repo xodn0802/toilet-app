@@ -13,12 +13,14 @@ import {
   type MarkerState,
 } from "@/lib/map/toilet-marker";
 import { reviewGate } from "@/lib/reviews/eligibility";
+import { fetchRatingsFor } from "@/lib/reviews/fetch-ratings";
 import { fetchReviews } from "@/lib/reviews/fetch-reviews";
 import { submitReview } from "@/lib/reviews/submit-review";
 import type { Review, ReviewDraft } from "@/lib/reviews/types";
 import { fetchWalkRoute } from "@/lib/route/fetch-walk-route";
 import type { RouteState } from "@/lib/route/state";
 import { formatDistance } from "@/lib/route/types";
+import { groupByCoords, type ToiletGroup } from "@/lib/toilets/cluster";
 import { fetchToilets } from "@/lib/toilets/fetch-toilets";
 import {
   NEARBY_RADIUS_M,
@@ -32,6 +34,7 @@ import AppBar from "./AppBar";
 import Icon from "./Icons";
 import RouteBanner from "./RouteBanner";
 import ToiletDetailSheet from "./ToiletDetailSheet";
+import ToiletListSheet from "./ToiletListSheet";
 
 /** 인하대학교. 위치 권한을 못 받았을 때의 기본 중심. */
 const INHA_UNIV = { lat: 37.4503, lng: 126.6532 };
@@ -55,6 +58,9 @@ const ACCURACY_COLOR = "#E2622C";
  * 엉뚱한 곳을 자기 위치로 믿는다.
  */
 const ACCURACY_LIMIT_M = 1000;
+
+/** 아직 별점을 못 받은 목록에 넘긴다. 매번 new Map() 을 만들면 목록이 다시 그려진다. */
+const EMPTY_RATINGS = new Map<string, number>();
 
 /** 오차 원을 화면에 맞출 때의 여백(px). 위는 앱바·안내 문구를 피해 넓게 준다. */
 const ACCURACY_FIT_PADDING = [170, 40, 40, 40] as const;
@@ -133,7 +139,14 @@ export default function ToiletMap({ initialAdd = false }: Props) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
-  const markersRef = useRef<{ id: string; marker: kakao.maps.Marker }[]>([]);
+  /**
+   * 마커는 **좌표당 하나**다. 겹친 화장실을 행마다 찍으면 완전히 포개져 맨 위
+   * 하나만 눌린다(lib/toilets/cluster.ts). 진하기·선택 판정에 그룹 안의 id 가
+   * 전부 필요하므로 같이 들고 있는다.
+   */
+  const markersRef = useRef<
+    { key: string; ids: string[]; count: number; marker: kakao.maps.Marker }[]
+  >([]);
   const myLocationRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const accuracyCircleRef = useRef<kakao.maps.Circle | null>(null);
 
@@ -149,6 +162,22 @@ export default function ToiletMap({ initialAdd = false }: Props) {
   /** null 은 "아직 안 불러옴". 0곳과 구분해야 앱바에 로딩을 표시할 수 있다. */
   const [toilets, setToilets] = useState<MappableToilet[] | null>(null);
   const [selected, setSelected] = useState<MappableToilet | null>(null);
+  /**
+   * 좌표가 겹친 마커를 눌렀을 때 뜨는 목록. 1곳짜리 마커는 여기를 거치지 않고
+   * 바로 상세로 간다 — 한 줄짜리 목록을 한 번 더 누르게 하는 것은 손해다.
+   */
+  const [group, setGroup] = useState<ToiletGroup | null>(null);
+  /**
+   * 열려 있는 목록의 평균 별점. 리뷰가 없는 곳은 들어 있지 않다.
+   *
+   * 어느 묶음의 것인지(`key`)를 같이 담는다. 안 담으면 다음 묶음을 여는 순간
+   * 앞 묶음의 별점이 잠깐 붙는다 — 위치 지정 패널이 주소에 `at` 을 담는 것과
+   * 같은 이유다.
+   */
+  const [groupRatings, setGroupRatings] = useState<{
+    key: string;
+    ratings: Map<string, number>;
+  } | null>(null);
   const [locationState, setLocationState] = useState<LocationState>("pending");
   const [center, setCenter] = useState(INHA_UNIV);
   /** 브라우저가 알려준 오차 반경(m). 위치를 못 받았으면 null. */
@@ -425,17 +454,37 @@ export default function ToiletMap({ initialAdd = false }: Props) {
     };
   }, [center, accuracy, locationCoarse, locationState, sdkReady]);
 
+  /**
+   * 좌표가 같은 것끼리 묶은 마커 단위. 앱바의 "1km 이내 N곳"은 **묶음이 아니라
+   * 화장실 곳 수**를 말해야 하므로 summarizeNearby 는 그대로 toilets 를 본다.
+   */
+  const groups = useMemo(() => groupByCoords(toilets ?? []), [toilets]);
+
+  /** 다른 화장실을 고르면 앞서 그린 경로는 더 이상 맞지 않으므로 지운다. */
+  const chooseToilet = useCallback((toilet: MappableToilet) => {
+    setSelected(toilet);
+    setGroup(null);
+    setRouteState((prev) =>
+      prev.status !== "idle" && prev.toilet.id !== toilet.id
+        ? { status: "idle" }
+        : prev,
+    );
+  }, []);
+
   // 화장실 마커.
   useEffect(() => {
     const map = mapRef.current;
-    if (!sdkReady || !map || !toilets) return;
+    if (!sdkReady || !map) return;
 
-    const created = toilets.map((toilet) => {
+    const created = groups.map((item) => {
       const marker = new kakao.maps.Marker({
-        position: new kakao.maps.LatLng(toilet.lat, toilet.lng),
-        title: toilet.name,
+        position: new kakao.maps.LatLng(item.lat, item.lng),
+        title:
+          item.toilets.length > 1
+            ? `${item.toilets[0].name} 외 ${item.toilets.length - 1}곳`
+            : item.toilets[0].name,
         // 진하기는 바로 아래 effect 가 반경을 보고 다시 정한다.
-        image: toiletMarkerImage("normal"),
+        image: toiletMarkerImage("normal", item.toilets.length),
         zIndex: MARKER_Z.normal,
       });
       marker.setMap(map);
@@ -443,15 +492,20 @@ export default function ToiletMap({ initialAdd = false }: Props) {
         // 위치를 고르는 중에는 지도가 "어디에 둘지"를 묻는 화면이다. 여기서
         // 상세 시트가 뜨면 두 화면이 겹친다.
         if (addOpenRef.current) return;
-        setSelected(toilet);
-        // 다른 화장실을 고르면 앞서 그린 경로는 더 이상 맞지 않으므로 지운다.
-        setRouteState((prev) =>
-          prev.status !== "idle" && prev.toilet.id !== toilet.id
-            ? { status: "idle" }
-            : prev,
-        );
+        if (item.toilets.length === 1) {
+          chooseToilet(item.toilets[0]);
+          return;
+        }
+        // 겹친 곳은 목록을 먼저 보인다. 무엇이 있는지 모르고 하나를 고를 수는 없다.
+        setSelected(null);
+        setGroup(item);
       });
-      return { id: toilet.id, marker };
+      return {
+        key: item.key,
+        ids: item.toilets.map((toilet) => toilet.id),
+        count: item.toilets.length,
+        marker,
+      };
     });
     markersRef.current = created;
 
@@ -459,22 +513,43 @@ export default function ToiletMap({ initialAdd = false }: Props) {
       created.forEach(({ marker }) => marker.setMap(null));
       markersRef.current = [];
     };
-  }, [toilets, sdkReady]);
+  }, [groups, sdkReady, chooseToilet]);
 
   // 선택된 핀은 키우고, 반경 밖 핀은 흐리게 한다. 마커를 다시 만들면 깜빡이므로
   // 이미지만 갈아 끼운다. nearIds 가 null 이면 기준점이 없다는 뜻이라 전부 진하다.
+  //
+  // 판정은 **묶음 단위**다. 겹친 것 중 하나라도 반경 안이면 진하게 둔다 — 그
+  // 마커를 흐리게 하면 반경 안 화장실로 가는 유일한 입구가 안 보인다.
   useEffect(() => {
-    markersRef.current.forEach(({ id, marker }) => {
-      const state: MarkerState =
-        id === selected?.id
-          ? "selected"
-          : nearIds && !nearIds.has(id)
-            ? "far"
-            : "normal";
-      marker.setImage(toiletMarkerImage(state));
+    markersRef.current.forEach(({ ids, count, marker }) => {
+      const state: MarkerState = ids.includes(selected?.id ?? "")
+        ? "selected"
+        : nearIds && !ids.some((id) => nearIds.has(id))
+          ? "far"
+          : "normal";
+      marker.setImage(toiletMarkerImage(state, count));
       marker.setZIndex(MARKER_Z[state]);
     });
-  }, [selected, toilets, sdkReady, nearIds]);
+  }, [selected, groups, sdkReady, nearIds]);
+
+  // 목록에 붙일 평균 별점. 목록이 열릴 때만 한 번 받는다.
+  useEffect(() => {
+    if (!group) return;
+
+    const { key } = group;
+    let cancelled = false;
+    fetchRatingsFor(group.toilets.map((toilet) => toilet.id))
+      .then((ratings) => {
+        if (!cancelled) setGroupRatings({ key, ratings });
+      })
+      // 별점을 못 받아도 목록 자체는 쓸 수 있다. 배지만 안 붙는다.
+      .catch(() => {
+        if (!cancelled) setGroupRatings({ key, ratings: new Map() });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [group]);
 
   // 경로 폴리라인. 상태가 ready 일 때만 그리고, 바뀌면 지웠다 다시 그린다.
   useEffect(() => {
@@ -679,7 +754,7 @@ export default function ToiletMap({ initialAdd = false }: Props) {
           */}
           <div
             className={`flex w-full flex-col items-start gap-2 empty:hidden ${
-              selected ? "lg:pl-[27rem]" : ""
+              selected || group ? "lg:pl-[27rem]" : ""
             }`}
           >
             {routeState.status !== "idle" && (
@@ -722,15 +797,16 @@ export default function ToiletMap({ initialAdd = false }: Props) {
           <div
             className={`absolute right-4 z-10 flex flex-col gap-3 transition-[bottom] duration-300 ease-out ${
               // 데스크톱에서는 상세가 왼쪽 카드라 버튼이 비켜설 이유가 없다.
-              selected ? "bottom-60 lg:bottom-6" : "bottom-6"
+              selected || group ? "bottom-60 lg:bottom-6" : "bottom-6"
             }`}
           >
             <button
               type="button"
               onClick={() => {
                 setAddOpen(true);
-                // 상세 시트가 열린 채로 두면 아래에서 두 시트가 겹친다.
+                // 시트가 열린 채로 두면 아래에서 두 시트가 겹친다.
                 setSelected(null);
+                setGroup(null);
               }}
               disabled={!sdkReady}
               aria-label="화장실 추가"
@@ -757,6 +833,20 @@ export default function ToiletMap({ initialAdd = false }: Props) {
             map={mapInstance}
             toilets={toilets ?? []}
             onClose={closeAdd}
+          />
+        )}
+
+        {group && !selected && (
+          <ToiletListSheet
+            key={group.key}
+            group={group}
+            ratings={
+              groupRatings?.key === group.key
+                ? groupRatings.ratings
+                : EMPTY_RATINGS
+            }
+            onSelect={chooseToilet}
+            onClose={() => setGroup(null)}
           />
         )}
 

@@ -47,7 +47,34 @@ const PICTOGRAM = `
   </g>
 `;
 
-function pinSvg(opacity: number): string {
+/**
+ * 같은 좌표에 여러 곳이 있을 때 붙이는 개수 배지.
+ *
+ * 이름 라벨은 달지 않는다 — 한 점에 31곳까지 쌓이는 데다 이름이 전부 부지 단위라
+ * ("인하대학교"가 세 번) 화면만 무너지고 구분도 안 된다. 숫자 하나면 "여기는
+ * 눌러야 할 것이 더 있다"는 사실만 전한다. 무엇이 있는지는 목록 시트가 말한다.
+ *
+ * 캔버스를 넓히지 않고 핀 머리 오른쪽 위에 겹쳐 둔다. 넓히면 마커 기준점
+ * (가로 중앙·세로 맨 아래)이 함께 밀려 핀 끝이 좌표를 안 가리킨다.
+ */
+function badgeSvg(count: number): string {
+  // 세 자리가 넘으면 칸을 아무리 넓혀도 이 크기에서 못 읽는다.
+  const label = count > 99 ? "99+" : String(count);
+  const w = 10 + label.length * 6;
+  const x = WIDTH - w;
+
+  return `
+    <g>
+      <rect x="${x}" y="0" width="${w}" height="16" rx="8"
+            fill="${EDGE}" stroke="${BODY}" stroke-width="2" />
+      <text x="${x + w / 2}" y="11.5" text-anchor="middle"
+            font-family="sans-serif" font-size="10" font-weight="700"
+            fill="${BODY}">${label}</text>
+    </g>
+  `;
+}
+
+function pinSvg(opacity: number, count: number): string {
   // 투명도는 <g> 에 한 번만 건다. 핀 몸통과 픽토그램에 따로 걸면 겹치는 부분이
   // 두 번 곱해져 테두리만 진하게 남는다.
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
@@ -57,6 +84,7 @@ function pinSvg(opacity: number): string {
         fill="${BODY}" stroke="${EDGE}" stroke-width="2.5" stroke-linejoin="round"
       />
       ${PICTOGRAM}
+      ${count > 1 ? badgeSvg(count) : ""}
     </g>
   </svg>`;
 }
@@ -72,11 +100,15 @@ function toDataUri(svg: string): string {
  * MarkerImage 는 좌표당 하나씩 만들 필요가 없다. 화장실이 수천 개가 되면 같은
  * 객체를 돌려쓰는 편이 훨씬 가벼우므로 모듈 수준에서 한 번만 만들어 캐시한다.
  */
-function createImage(scale: number, opacity: number): kakao.maps.MarkerImage {
+function createImage(
+  scale: number,
+  opacity: number,
+  count: number,
+): kakao.maps.MarkerImage {
   const width = Math.round(WIDTH * scale);
   const height = Math.round(HEIGHT * scale);
   return new kakao.maps.MarkerImage(
-    toDataUri(pinSvg(opacity)),
+    toDataUri(pinSvg(opacity, count)),
     new kakao.maps.Size(width, height),
     // 핀은 뾰족한 끝이 좌표를 가리킨다. 기준점을 가로 중앙·세로 맨 아래로.
     { offset: new kakao.maps.Point(width / 2, height) },
@@ -91,14 +123,31 @@ function createImage(scale: number, opacity: number): kakao.maps.MarkerImage {
  */
 export type MarkerState = "normal" | "far" | "selected";
 
-const cache: Partial<Record<MarkerState, kakao.maps.MarkerImage>> = {};
+/**
+ * 개수까지 키에 넣는다. 상태 3가지 × 실제로 쓰이는 개수만큼만 만들어지고,
+ * 대부분의 좌표는 1곳이라 캐시는 사실상 예전과 같은 크기로 유지된다.
+ */
+const cache = new Map<string, kakao.maps.MarkerImage>();
 
-/** SDK 가 준비된 뒤에만 부를 것. kakao.maps.Size 등이 필요하다. */
-export function toiletMarkerImage(state: MarkerState): kakao.maps.MarkerImage {
-  return (cache[state] ??=
-    state === "selected"
-      ? createImage(SELECTED_SCALE, 1)
-      : createImage(1, state === "far" ? FAR_OPACITY : 1));
+/**
+ * SDK 가 준비된 뒤에만 부를 것. kakao.maps.Size 등이 필요하다.
+ *
+ * `count` 는 이 좌표에 겹친 화장실 수다. 1이면 배지가 안 붙어 기존 핀과 같다.
+ */
+export function toiletMarkerImage(
+  state: MarkerState,
+  count = 1,
+): kakao.maps.MarkerImage {
+  const key = `${state}:${count}`;
+  let image = cache.get(key);
+  if (!image) {
+    image =
+      state === "selected"
+        ? createImage(SELECTED_SCALE, 1, count)
+        : createImage(1, state === "far" ? FAR_OPACITY : 1, count);
+    cache.set(key, image);
+  }
+  return image;
 }
 
 /**
