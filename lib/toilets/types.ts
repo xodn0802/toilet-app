@@ -14,6 +14,13 @@ export type Toilet = {
   source: ToiletSource;
   external_id: string | null;
   name: string;
+  /**
+   * 건물·층. 공공데이터는 이 정보를 안 주므로 **수집된 행은 전부 null 이다.**
+   * 사용자 제보와 캠퍼스 시드에만 찬다 — 같은 좌표에 쌓인 행들을 목록에서
+   * 구분하는 유일한 단서다(0004_building_floor.sql).
+   */
+  building: string | null;
+  floor: string | null;
   road_address: string | null;
   jibun_address: string | null;
   /** 공공데이터가 좌표를 주지 않으므로 지오코딩 전에는 null 이다. */

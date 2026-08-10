@@ -6,6 +6,8 @@ import type { ReverseGeocodeResult } from "@/lib/map/reverse-geocode";
 import {
   ACCESS_OPTIONS,
   FACILITY_OPTIONS,
+  MAX_BUILDING_LENGTH,
+  MAX_FLOOR_LENGTH,
   MAX_NAME_LENGTH,
   MAX_NOTE_LENGTH,
   MAX_OPEN_HOURS_LENGTH,
@@ -70,6 +72,8 @@ export default function AddToiletForm({
   onClose,
 }: Props) {
   const [name, setName] = useState("");
+  const [building, setBuilding] = useState("");
+  const [floor, setFloor] = useState("");
   const [access, setAccess] = useState<AccessType | null>(null);
   const [openHours, setOpenHours] = useState("");
   const [unisex, setUnisex] = useState<boolean | null>(null);
@@ -97,6 +101,8 @@ export default function AddToiletForm({
     try {
       await onSubmit({
         name: name.trim(),
+        building: building.trim() || null,
+        floor: floor.trim() || null,
         lat: position.lat,
         lng: position.lng,
         road_address: address.road,
@@ -178,6 +184,41 @@ export default function AddToiletForm({
           placeholder="예) 스타벅스 인하대점 2층"
           className={INPUT_CLASS}
         />
+
+        {/*
+          건물·층은 실내 화장실의 유일한 단서다. 캠퍼스 건물처럼 같은 좌표에 층별로
+          여러 개가 붙으면 좌표로는 구분이 안 되고 이 두 칸만 남는다.
+          한 줄에 나란히 두는 이유 — 둘 다 짧고, 따로 떼어 놓으면 폼이 길어져
+          중간에 포기한다.
+        */}
+        <div className="mt-4 flex gap-2">
+          <div className="min-w-0 flex-1">
+            <label htmlFor="add-building" className="block text-sm font-medium">
+              건물 <span className="text-muted">(선택)</span>
+            </label>
+            <input
+              id="add-building"
+              value={building}
+              onChange={(event) => setBuilding(event.target.value)}
+              maxLength={MAX_BUILDING_LENGTH}
+              placeholder="예) 하이테크관"
+              className={INPUT_CLASS}
+            />
+          </div>
+          <div className="w-28 shrink-0">
+            <label htmlFor="add-floor" className="block text-sm font-medium">
+              층 <span className="text-muted">(선택)</span>
+            </label>
+            <input
+              id="add-floor"
+              value={floor}
+              onChange={(event) => setFloor(event.target.value)}
+              maxLength={MAX_FLOOR_LENGTH}
+              placeholder="예) 3층, B1"
+              className={INPUT_CLASS}
+            />
+          </div>
+        </div>
 
         <p className="mt-4 text-sm font-medium">
           이용조건 <span className="text-muted">(선택)</span>

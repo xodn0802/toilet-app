@@ -37,6 +37,8 @@ export const FACILITY_OPTIONS: { value: Facility; label: string }[] = [
 export const MAX_NAME_LENGTH = 60;
 export const MAX_OPEN_HOURS_LENGTH = 40;
 export const MAX_NOTE_LENGTH = 300;
+export const MAX_BUILDING_LENGTH = 60;
+export const MAX_FLOOR_LENGTH = 20;
 
 /**
  * 폼이 만들어 넘기는 값. id·status·검토 컬럼은 DB 기본값과 RLS 가 채운다.
@@ -46,6 +48,13 @@ export const MAX_NOTE_LENGTH = 300;
  */
 export type SubmissionDraft = {
   name: string;
+  /**
+   * 건물·층. 실내 화장실은 좌표로 구분되지 않아서 이 둘이 유일한 단서다
+   * (0004_building_floor.sql). 캠퍼스 건물처럼 같은 좌표에 층별로 여러 개가
+   * 붙는 경우를 위해 받는다 — 안 적어도 접수된다.
+   */
+  building: string | null;
+  floor: string | null;
   lat: number;
   lng: number;
   /** 역지오코딩 결과. 못 읽었으면 null 이고, 그래도 접수는 된다. */

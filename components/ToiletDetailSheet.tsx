@@ -70,6 +70,10 @@ export default function ToiletDetailSheet({
         ? "리뷰 없음"
         : `리뷰 ${loaded.length}개`;
 
+  // 건물·층. 사용자 등록분에만 있다(0004_building_floor.sql).
+  const place =
+    [toilet.building, toilet.floor].filter(Boolean).join(" · ") || null;
+
   // 길찾기를 하고 나면 실제 도보 거리를 알게 되므로 직선거리는 물러난다.
   const distanceLabel = route
     ? `${formatDistance(route.distanceMeters)} · ${formatDuration(route.durationSeconds)}`
@@ -113,6 +117,18 @@ export default function ToiletDetailSheet({
                 {toilet.source === "public" ? "공공" : "사용자"}
               </span>
             </div>
+
+            {/*
+              건물·층은 이름 바로 아래, 접힌 시트에서도 보이는 자리에 둔다.
+              같은 좌표에 층별로 여러 행이 있을 때 이름이 전부 같으므로(목록
+              시트에서 넘어온 경우) 여기가 "어느 것을 열었는지"를 말하는 유일한
+              자리다. 공공데이터 행은 둘 다 null 이라 아무것도 안 그린다.
+            */}
+            {place && (
+              <p className="mt-1 truncate text-sm font-medium text-brand">
+                {place}
+              </p>
+            )}
 
             <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted">
               <span>{reviewLabel}</span>
