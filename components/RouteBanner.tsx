@@ -31,8 +31,13 @@ function subtitle(state: Props["state"]): string {
   switch (state.status) {
     case "loading":
       return "경로를 찾는 중입니다…";
-    case "error":
-      return state.message;
+    /*
+      "직선" 을 앞에 붙여 ready 의 "240m · 도보 4분" 과 한눈에 갈리게 한다.
+      소요 시간은 적지 않는다 — 직선거리로 시간을 지어내면 실제로는 돌아가야
+      하는 길을 짧게 말하게 된다.
+    */
+    case "straight":
+      return `직선 ${formatDistance(state.distanceMeters)}`;
     case "ready":
       return `${formatDistance(state.route.distanceMeters)} · ${formatDuration(
         state.route.durationSeconds,
@@ -46,26 +51,31 @@ export default function RouteBanner({
   reason,
   onCancel,
 }: Props) {
-  const isError = state.status === "error";
-
-  // 아이콘·버튼 배경은 bg-current/15 로 글자색에서 뜬다. 밝은 배너 위에서는
-  // 밝게, 어두운 배너 위에서는 어둡게 잡혀 어느 쪽이든 대비가 남는다.
-  const tone = isError ? "bg-signal text-white" : "bg-brand text-brand-ink";
+  const isStraight = state.status === "straight";
 
   return (
-    <div
-      className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-float ${tone}`}
-    >
+    // 아이콘·버튼 배경은 bg-current/15 로 글자색에서 뜬다. 밝은 배너 위에서는
+    // 밝게, 어두운 배너 위에서는 어둡게 잡혀 어느 쪽이든 대비가 남는다.
+    <div className="flex items-center gap-3 rounded-2xl bg-brand px-4 py-3 text-brand-ink shadow-float">
       <span
         aria-hidden
         className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-current/15 text-lg leading-none"
       >
-        {isError ? "!" : "→"}
+        →
       </span>
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{state.toilet.name}</p>
         <p className="truncate text-sm opacity-80">{subtitle(state)}</p>
+        {/*
+          왜 직선인지. 이 줄이 없으면 점선을 실제 경로로 읽고, 직선거리를
+          걸어야 하는 거리로 읽는다. 둘 다 실제보다 짧다.
+        */}
+        {isStraight && (
+          <p className="truncate text-xs opacity-80">
+            도보 경로를 못 받아 방향만 표시합니다
+          </p>
+        )}
         {/* 왜 이 곳으로 보냈는지. 버튼이 대신 고른 것이므로 근거가 보여야 한다. */}
         {reason && (
           <p className="truncate text-xs opacity-80">{REASON_LABEL[reason]}</p>

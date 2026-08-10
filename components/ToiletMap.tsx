@@ -592,12 +592,28 @@ export default function ToiletMap({ initialAdd = false }: Props) {
     };
   }, [group]);
 
-  // 경로 폴리라인. 상태가 ready 일 때만 그리고, 바뀌면 지웠다 다시 그린다.
+  /*
+    경로 폴리라인. 바뀌면 지웠다 다시 그린다.
+
+    도보 경로를 못 받은 straight 일 때도 그린다 — 출발지와 도착지를 잇는 선
+    하나다. 아무것도 안 그리면 화면에는 배너 글자만 남아 어느 쪽으로 가야 하는지
+    모르게 된다. 대신 **점선**이라 "이 길로 가라"가 아니라 "저쪽 방향"으로 읽힌다.
+  */
   useEffect(() => {
     const map = mapRef.current;
-    if (!sdkReady || !map || routeState.status !== "ready") return;
+    if (!sdkReady || !map) return;
+    if (routeState.status !== "ready" && routeState.status !== "straight")
+      return;
 
-    const path = routeState.route.path.map(
+    const points =
+      routeState.status === "ready"
+        ? routeState.route.path
+        : [
+            routeState.origin,
+            { lat: routeState.toilet.lat, lng: routeState.toilet.lng },
+          ];
+
+    const path = points.map(
       (point) => new kakao.maps.LatLng(point.lat, point.lng),
     );
 
@@ -606,7 +622,7 @@ export default function ToiletMap({ initialAdd = false }: Props) {
       strokeWeight: 6,
       strokeColor: ROUTE_COLOR,
       strokeOpacity: 0.9,
-      strokeStyle: "solid",
+      strokeStyle: routeState.status === "ready" ? "solid" : "shortdash",
     });
     polyline.setMap(map);
 
@@ -643,14 +659,20 @@ export default function ToiletMap({ initialAdd = false }: Props) {
           endName: toilet.name,
         });
         applyIfCurrent({ status: "ready", toilet, route });
-      } catch (error) {
+      } catch {
+        /*
+          도보 경로를 못 받았다. 오류를 띄우고 끝내면 화면에 아무것도 안 남아
+          방향조차 모르게 된다. 직선거리는 여기서 계산하는 값이라 TMAP 이
+          어떻든 항상 나오므로 그것으로 대신 안내한다.
+
+          실패 이유를 가리지 않는 이유 — 한도 초과(502)든 네트워크든 사용자가
+          할 수 있는 일은 같다. 이유를 나눠 봤자 문구만 늘어난다.
+        */
         applyIfCurrent({
-          status: "error",
+          status: "straight",
           toilet,
-          message:
-            error instanceof Error
-              ? error.message
-              : "경로를 불러오지 못했습니다.",
+          origin: center,
+          distanceMeters: straightLineDistance(center, toilet),
         });
       }
     },
