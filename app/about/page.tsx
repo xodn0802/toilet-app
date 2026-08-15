@@ -23,7 +23,7 @@ export const metadata: Metadata = {
  * 적재는 52,751건이지만 1,620건은 주소를 좌표로 못 바꿔 지도에 안 뜬다. 여기
  * 적는 숫자는 **사용자가 화면에서 볼 수 있는 것**이어야 하므로 적재 수가 아니다.
  */
-const TOILET_COUNT = "51,131";
+const TOILET_COUNT = "51,128";
 
 function Card({
   icon,
