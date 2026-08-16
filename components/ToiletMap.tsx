@@ -747,6 +747,14 @@ export default function ToiletMap({ initialAdd = false }: Props) {
   // 지도를 끌고 다닌 뒤 돌아오는 길. center 는 그대로라 위의 effect 로는 안 되고,
   // 누를 때마다 직접 옮겨야 한다.
   const handleRecenter = useCallback(() => {
+    // 아직 위치가 없으면 옮길 곳이 없다. 다시 묻고, 받으면 center 가 바뀌어
+    // 위의 effect 가 지도를 옮긴다. 예전에는 이 경우 버튼이 disabled 라서
+    // **눌러도 아무 일이 없고 위치를 다시 받을 길도 없었다.**
+    if (locationState !== "granted") {
+      requestLocation();
+      return;
+    }
+
     const map = mapRef.current;
     if (!map) return;
     map.setCenter(new kakao.maps.LatLng(center.lat, center.lng));
@@ -759,7 +767,7 @@ export default function ToiletMap({ initialAdd = false }: Props) {
       return;
     }
     map.setLevel(DEFAULT_LEVEL);
-  }, [center]);
+  }, [center, locationState, requestLocation]);
 
   // 오차가 크면 그 사실이 "위치를 확인했다"보다 먼저다. 숫자까지 같이 보여야
   // 사용자가 지도 위의 원과 문구를 연결해 읽을 수 있다.
@@ -936,11 +944,14 @@ export default function ToiletMap({ initialAdd = false }: Props) {
               <Icon name="add" className="h-6 w-6" />
             </button>
 
-            {/* 지도를 끌고 다니다 돌아올 길. */}
+            {/*
+              지도를 끌고 다니다 돌아올 길. 위치를 아직 못 받았어도 누를 수
+              있다 — 그때는 위치를 다시 묻는다. 묻는 중에만 잠근다(연타 방지).
+            */}
             <button
               type="button"
               onClick={handleRecenter}
-              disabled={!sdkReady || locationState !== "granted"}
+              disabled={!sdkReady || locationState === "pending"}
               aria-label="현재 위치로 이동"
               className="grid h-12 w-12 place-items-center rounded-full bg-surface text-brand shadow-float hover:bg-sunken disabled:text-muted"
             >
@@ -953,9 +964,14 @@ export default function ToiletMap({ initialAdd = false }: Props) {
           「바로 안내」 — 들어가자마자 누르는 버튼이라 오른쪽 아래 FAB 스택이
           아니라 하단 중앙에 둔다. 상세·목록이 열렸으면 그 안에 이미 길찾기
           버튼이 있고, 추가 모드에서는 지도가 "어디에 둘지"를 묻는 화면이다.
+
+          감싸는 줄이 `pointer-events-none` 인 이유 — inset-x-0 이라 화면 전폭을
+          차지해 같은 bottom-6 에 있는 FAB 스택을 덮는다. 둘 다 z-10 인데 이쪽이
+          DOM 에서 나중이라 이겨서 **위치 버튼이 눌리지 않았다.** 줄은 클릭을
+          통과시키고 버튼만 pointer-events-auto 로 받는다.
         */}
         {!selected && !group && !addOpen && (
-          <div className="absolute inset-x-0 bottom-6 z-10 flex justify-center px-24">
+          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center px-24">
             <button
               type="button"
               onClick={handleGuide}
