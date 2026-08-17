@@ -35,7 +35,7 @@ import {
 } from "@/lib/toilets/nearby";
 import { isMappable, type MappableToilet } from "@/lib/toilets/types";
 
-import AddToilet from "./AddToilet";
+import AddToilet, { type AddSeed } from "./AddToilet";
 import AppBar from "./AppBar";
 import Icon from "./Icons";
 import RouteBanner from "./RouteBanner";
@@ -210,6 +210,12 @@ export default function ToiletMap({ initialAdd = false }: Props) {
   const [truncated, setTruncated] = useState(false);
   /** 화장실 추가 모드. 켜져 있으면 지도를 위치 고르는 데 쓴다. */
   const [addOpen, setAddOpen] = useState(initialAdd);
+  /**
+   * 좌표를 이미 아는 채로 추가 모드를 연 경우의 시작값. `+` 버튼으로 열면 null.
+   *
+   * 여기 담긴 좌표가 있으면 AddToilet 이 핀 맞추기를 건너뛰고 폼부터 연다.
+   */
+  const [addSeed, setAddSeed] = useState<AddSeed | null>(null);
 
   // 사이드바에서 눌러 들어오면 주소만 바뀌고 이 컴포넌트는 그대로 있다.
   // 그래서 처음 값(useState)만으로는 두 번째부터 안 열린다.
@@ -225,8 +231,32 @@ export default function ToiletMap({ initialAdd = false }: Props) {
    */
   const closeAdd = useCallback(() => {
     setAddOpen(false);
+    setAddSeed(null);
     if (initialAdd) router.replace("/", { scroll: false });
   }, [initialAdd, router]);
+
+  /**
+   * 이미 등록된 화장실의 좌표에 한 곳을 더 추가한다.
+   *
+   * 같은 건물의 다른 층, 같은 층의 다른 성별이 여기 해당한다. 캠퍼스 실내
+   * 화장실은 이런 식으로만 늘어나는데, 목록을 닫고 `+` 를 눌러 지도를 다시
+   * 끌어야 한다면 그 마찰에서 대부분 그만둔다.
+   *
+   * **주소를 그 행에서 그대로 가져온다** — 좌표가 같으니 역지오코딩할 이유가 없다.
+   */
+  const openAddAt = useCallback((toilet: MappableToilet) => {
+    setSelected(null);
+    setGroup(null);
+    setAddSeed({
+      lat: toilet.lat,
+      lng: toilet.lng,
+      address: { road: toilet.road_address, jibun: toilet.jibun_address },
+      // 이름에서 끌어오지 않는다. 공공데이터의 이름은 `인하대학교` 같은 부지
+      // 단위라 건물칸에 박히면 틀린 값이 된다.
+      building: toilet.building,
+    });
+    setAddOpen(true);
+  }, []);
 
   /**
    * 마커 클릭 리스너가 읽는 addOpen.
@@ -933,6 +963,9 @@ export default function ToiletMap({ initialAdd = false }: Props) {
               type="button"
               onClick={() => {
                 setAddOpen(true);
+                // 지도에서 직접 고르는 흐름이다. 앞서 목록에서 열어 둔 좌표가
+                // 남아 있으면 핀 맞추기를 건너뛰어 버린다.
+                setAddSeed(null);
                 // 시트가 열린 채로 두면 아래에서 두 시트가 겹친다.
                 setSelected(null);
                 setGroup(null);
@@ -990,6 +1023,7 @@ export default function ToiletMap({ initialAdd = false }: Props) {
           <AddToilet
             map={mapInstance}
             toilets={toilets ?? []}
+            seed={addSeed}
             onClose={closeAdd}
           />
         )}
@@ -1004,6 +1038,8 @@ export default function ToiletMap({ initialAdd = false }: Props) {
                 : EMPTY_RATINGS
             }
             onSelect={chooseToilet}
+            // 좌표와 주소는 묶음 안에서 다 같다. 건물명은 첫 행의 것을 쓴다.
+            onAdd={() => openAddAt(group.toilets[0])}
             onClose={() => setGroup(null)}
           />
         )}
@@ -1023,6 +1059,7 @@ export default function ToiletMap({ initialAdd = false }: Props) {
             nickname={identity.who?.nickname ?? null}
             onSubmitReview={handleSubmitReview}
             onNavigate={() => navigateTo(selected)}
+            onAdd={() => openAddAt(selected)}
             onClose={() => setSelected(null)}
           />
         )}

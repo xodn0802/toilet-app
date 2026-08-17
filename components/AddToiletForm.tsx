@@ -25,6 +25,11 @@ type Props = {
   /** 앞 단계에서 고른 위치. 여기서는 안 바뀐다. */
   position: { lat: number; lng: number };
   address: ReverseGeocodeResult;
+  /**
+   * 건물칸의 첫 값. 이미 등록된 화장실에서 「이 위치에 화장실 추가」로 들어온
+   * 경우, 그 행이 건물명을 갖고 있으면 같은 건물이 확실하므로 미리 채운다.
+   */
+  initialBuilding?: string | null;
   /** 던지면 폼이 그대로 남고 에러만 뜬다. */
   onSubmit: (draft: SubmissionDraft) => Promise<void>;
   onBack: () => void;
@@ -63,12 +68,13 @@ const INPUT_CLASS =
 export default function AddToiletForm({
   position,
   address,
+  initialBuilding,
   onSubmit,
   onBack,
   onClose,
 }: Props) {
   const [name, setName] = useState("");
-  const [building, setBuilding] = useState("");
+  const [building, setBuilding] = useState(initialBuilding ?? "");
   const [floor, setFloor] = useState("");
   const [access, setAccess] = useState<AccessType | null>(null);
   const [openHours, setOpenHours] = useState("");

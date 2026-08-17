@@ -38,6 +38,8 @@ type Props = {
   nickname: string | null;
   onSubmitReview: (draft: ReviewDraft) => Promise<void>;
   onNavigate: () => void;
+  /** 같은 좌표에 한 곳을 더 제보한다. 다른 층·다른 성별이 여기로 들어온다. */
+  onAdd: () => void;
   onClose: () => void;
 };
 
@@ -52,6 +54,7 @@ export default function ToiletDetailSheet({
   nickname,
   onSubmitReview,
   onNavigate,
+  onAdd,
   onClose,
 }: Props) {
   // 접힌 상태에서는 지도가 계속 보인다. 급할 때는 여기까지만 보고 길찾기를 누른다.
@@ -210,6 +213,28 @@ export default function ToiletDetailSheet({
         }`}
       >
         <ToiletFacts toilet={toilet} reviews={loaded} />
+
+        {/*
+          목록 시트에도 같은 버튼이 있다. **양쪽에 있어야 하는 이유** — 한 좌표에
+          한 곳뿐이면 목록을 건너뛰고 바로 이 시트가 뜬다. 캠퍼스에 첫 화장실이
+          막 등록된 건물이 정확히 그 상태라, 목록에만 두면 "여자 화장실을 추가할
+          입구"가 그 건물에서 사라진다.
+
+          리뷰 아래가 아니라 시설 정보 바로 뒤인 이유 — 여기가 "이 자리에 무엇이
+          있는지"를 말하는 자리고, 빠진 것을 알아채는 것도 이 대목이다.
+        */}
+        <section className="mt-6">
+          <button
+            type="button"
+            onClick={onAdd}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-line px-4 py-3 text-sm font-medium text-muted hover:border-brand hover:text-brand"
+          >
+            <Icon name="add" className="h-5 w-5" />이 위치에 화장실 추가
+          </button>
+          <p className="mt-1.5 text-center text-xs text-muted">
+            같은 건물의 다른 층·다른 성별이 빠져 있다면 알려주세요
+          </p>
+        </section>
 
         <CleanlinessMeter reviews={reviews} />
 

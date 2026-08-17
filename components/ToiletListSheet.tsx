@@ -1,6 +1,12 @@
 "use client";
 
-import { toiletSubtitle, type ToiletGroup } from "@/lib/toilets/cluster";
+import { useMemo } from "react";
+
+import {
+  sortByRating,
+  toiletSubtitle,
+  type ToiletGroup,
+} from "@/lib/toilets/cluster";
 import type { MappableToilet } from "@/lib/toilets/types";
 
 import Icon from "./Icons";
@@ -25,6 +31,8 @@ type Props = {
   /** 화장실별 평균 청결도. 리뷰가 없는 곳은 아예 들어 있지 않다. */
   ratings: Map<string, number>;
   onSelect: (toilet: MappableToilet) => void;
+  /** 같은 좌표에 한 곳을 더 제보한다. 다른 층·다른 성별이 여기로 들어온다. */
+  onAdd: () => void;
   onClose: () => void;
 };
 
@@ -32,8 +40,16 @@ export default function ToiletListSheet({
   group,
   ratings,
   onSelect,
+  onAdd,
   onClose,
 }: Props) {
+  // 별점은 목록이 열린 뒤에 도착하므로 한 번 다시 정렬된다. 로딩 표시를 두지
+  // 않는 이유는 sortByRating 주석에 있다.
+  const sorted = useMemo(
+    () => sortByRating(group.toilets, ratings),
+    [group, ratings],
+  );
+
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 flex max-h-[70%] flex-col overflow-hidden rounded-t-3xl bg-surface shadow-sheet lg:inset-x-auto lg:top-20 lg:bottom-auto lg:left-4 lg:max-h-[calc(100%-7rem)] lg:w-[400px] lg:rounded-2xl lg:shadow-float">
       <div className="flex shrink-0 items-start justify-between gap-3 px-5 pt-5 pb-3">
@@ -62,8 +78,8 @@ export default function ToiletListSheet({
         </button>
       </div>
 
-      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-6">
-        {group.toilets.map((toilet) => {
+      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2">
+        {sorted.map((toilet) => {
           const average = ratings.get(toilet.id);
           // 건물·층이 있으면 그것, 없으면 주소. 위 헤더가 이미 주소를 말했으므로
           // 여기서 주소가 또 나오면 중복이지만, 그때는 이 화장실을 구분할 다른
@@ -112,6 +128,23 @@ export default function ToiletListSheet({
           );
         })}
       </ul>
+
+      {/*
+        목록 아래가 아니라 **고정된 발판**에 둔다. 71곳이 쌓인 좌표에서는 끝까지
+        스크롤해야 보이는 버튼이 없는 것과 같고, 빠진 층을 발견하는 사람은 대개
+        목록 위쪽을 훑다가 알아챈다.
+
+        점선 테두리는 시설 칩과 같은 말을 한다 — "아직 채워지지 않은 칸".
+      */}
+      <div className="shrink-0 border-t border-line px-5 py-4">
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-line px-4 py-3 text-sm font-medium text-muted hover:border-brand hover:text-brand"
+        >
+          <Icon name="add" className="h-5 w-5" />이 위치에 화장실 추가
+        </button>
+      </div>
     </div>
   );
 }

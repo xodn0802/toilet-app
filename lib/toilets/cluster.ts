@@ -73,3 +73,32 @@ export function toiletSubtitle(toilet: MappableToilet): string | null {
   if (place.length > 0) return place.join(" · ");
   return toilet.road_address ?? toilet.jibun_address;
 }
+
+/**
+ * 목록을 청결도 순으로 세운다. 원본은 안 건드린다.
+ *
+ * **평점이 있는 곳이 먼저**, 그 안에서 높은 순. 평점이 없는 곳은 **원래 순서
+ * 그대로** 뒤에 붙는다(`Array.prototype.sort` 는 안정 정렬이다).
+ *
+ * 무평점을 `0` 으로 취급해 섞지 않는 이유 — 그러면 "아직 아무도 평가하지 않은
+ * 곳"이 "나쁘다고 평가된 곳"과 같은 자리에 놓인다. ToiletListSheet 가 무평점에
+ * 배지를 아예 안 그리는 것과 같은 판단이다.
+ *
+ * `ratings` 는 그룹이 열릴 때 받아 오므로 **몇백 ms 뒤에 채워진다.** 그동안은
+ * 전부 무평점이라 입력 순서가 그대로 보이고, 값이 오면 한 번 다시 정렬된다.
+ * 로딩 상태를 따로 만들지 않는다 — 캠퍼스 목록은 몇 줄이고 지금은 대부분
+ * 평점이 없어 순서가 바뀌지 않는다.
+ */
+export function sortByRating(
+  toilets: MappableToilet[],
+  ratings: Map<string, number>,
+): MappableToilet[] {
+  return [...toilets].sort((a, b) => {
+    const ratingA = ratings.get(a.id);
+    const ratingB = ratings.get(b.id);
+    if (ratingA === undefined && ratingB === undefined) return 0;
+    if (ratingA === undefined) return 1;
+    if (ratingB === undefined) return -1;
+    return ratingB - ratingA;
+  });
+}
