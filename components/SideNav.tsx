@@ -80,6 +80,10 @@ type Item = {
  *
  * "화장실 등록"이 별도 라우트가 아닌 이유 — 지도를 다른 페이지로 옮기면 지도가
  * 다시 만들어져 보던 위치·축척을 잃는다. 등록은 지도 위에 얹는 모드다.
+ *
+ * "인하대 화장실"도 같은 이유로 **좌표만 붙인 지도 링크**다(lib/map/focus.ts).
+ * 학교 전용 화면을 만들지 않은 것은 사용자 결정이다 — 전국 앱에 학교 하나만
+ * 특별대우하는 화면이 생기면 다음 학교가 들어올 자리가 없다.
  */
 const ITEMS: Item[] = [
   { href: "/", label: "지도", icon: "map", activePath: "/" },
@@ -87,6 +91,12 @@ const ITEMS: Item[] = [
     href: "/?add=1",
     label: "화장실 등록",
     icon: "addLocation",
+    activePath: null,
+  },
+  {
+    href: "/?lat=37.4506&lng=126.6536&level=5",
+    label: "인하대 화장실",
+    icon: "school",
     activePath: null,
   },
   { href: "/about", label: "소개", icon: "info", activePath: "/about" },

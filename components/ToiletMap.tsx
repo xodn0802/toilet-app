@@ -14,6 +14,7 @@ import {
 import { useIdentity } from "@/lib/auth/use-identity";
 import { boundsAround, sameBounds, type Bounds } from "@/lib/geo/bounds";
 import { straightLineDistance } from "@/lib/geo/distance";
+import type { MapFocus } from "@/lib/map/focus";
 import {
   MARKER_Z,
   toiletMarkerImage,
@@ -152,9 +153,14 @@ function Notice({
 type Props = {
   /** 주소가 `?add=1` 이면 화장실 등록 모드로 연다. 사이드바 메뉴가 붙인다. */
   initialAdd?: boolean;
+  /**
+   * 주소에 좌표가 있으면(`?lat=&lng=&level=`) 거기서 연다. 없으면 null 이라
+   * 지금까지처럼 내 위치를 따라간다.
+   */
+  focus?: MapFocus | null;
 };
 
-export default function ToiletMap({ initialAdd = false }: Props) {
+export default function ToiletMap({ initialAdd = false, focus = null }: Props) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
@@ -168,6 +174,21 @@ export default function ToiletMap({ initialAdd = false }: Props) {
   >([]);
   const myLocationRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const accuracyCircleRef = useRef<kakao.maps.Circle | null>(null);
+  /**
+   * 딥링크로 연 곳을 붙잡고 있는 동안 참. 위치를 받아도 지도를 안 옮긴다.
+   *
+   * 사용자가 직접 위치를 요구하면(`requestLocation`) 풀린다 — 링크보다 그쪽이
+   * 나중이자 명시적인 의사표시다.
+   */
+  const holdFocusRef = useRef(false);
+
+  /*
+    좌표를 객체가 아니라 값으로 푼다. `focus` 는 서버가 렌더할 때마다 새 객체라
+    그대로 의존성에 넣으면 아무것도 안 바뀌었는데 지도가 다시 움직인다.
+  */
+  const focusLat = focus?.lat ?? null;
+  const focusLng = focus?.lng ?? null;
+  const focusLevel = focus?.level ?? null;
 
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkFailed, setSdkFailed] = useState(false);
@@ -453,6 +474,9 @@ export default function ToiletMap({ initialAdd = false }: Props) {
    * 안 물으면 실패 콜백이 같은 안내를 다시 띄운다.
    */
   const requestLocation = useCallback(() => {
+    // 딥링크 잠금을 여기서 푼다. 링크로 들어왔더라도 "내 위치로"를 직접 누른
+    // 사람에게는 지도가 따라와야 한다.
+    holdFocusRef.current = false;
     setLocationState("pending");
     askLocation();
   }, [askLocation]);
@@ -461,8 +485,13 @@ export default function ToiletMap({ initialAdd = false }: Props) {
   useEffect(() => {
     if (!sdkReady || !containerRef.current || mapRef.current) return;
     const map = new kakao.maps.Map(containerRef.current, {
-      center: new kakao.maps.LatLng(center.lat, center.lng),
-      level: DEFAULT_LEVEL,
+      // 딥링크가 있으면 그 좌표에서 만든다. 만든 뒤에 옮기면 첫 화면이 한 번
+      // 튀고, 지나가는 영역의 화장실까지 헛으로 조회한다.
+      center: new kakao.maps.LatLng(
+        focusLat ?? center.lat,
+        focusLng ?? center.lng,
+      ),
+      level: focusLevel ?? DEFAULT_LEVEL,
     });
     mapRef.current = map;
     setMapInstance(map);
@@ -478,7 +507,7 @@ export default function ToiletMap({ initialAdd = false }: Props) {
 
     syncViewport();
     kakao.maps.event.addListener(map, "idle", syncViewport);
-  }, [sdkReady, center]);
+  }, [sdkReady, center, focusLat, focusLng, focusLevel]);
 
   /*
     컨테이너 폭이 바뀌면 카카오에 알려야 한다. 1024px 경계를 넘나들면 사이드바가
@@ -504,9 +533,33 @@ export default function ToiletMap({ initialAdd = false }: Props) {
     return () => observer.disconnect();
   }, [mapInstance]);
 
-  // 위치를 나중에 받아왔을 때 중심을 옮긴다.
+  /**
+   * 주소에 좌표가 있으면 그 곳을 연다.
+   *
+   * 지도를 만들 때 이미 반영되는데도 이 effect 가 따로 있는 이유 — 지도를 보고
+   * 있는 채로 사이드바의 「인하대 화장실」을 누르면 **주소만 바뀌고 이 컴포넌트는
+   * 그대로 있다.** `?add=1` 에 마운트 effect 를 하나 더 둔 것과 같은 이유다.
+   *
+   * 아래 effect 보다 **먼저** 선언돼 있어야 한다. 같은 커밋에서 둘 다 돌 때
+   * (SDK 준비 완료) 잠금이 먼저 걸려야 위치가 지도를 뺏어가지 않는다.
+   */
   useEffect(() => {
-    if (!sdkReady || !mapRef.current) return;
+    const map = mapRef.current;
+    if (!sdkReady || !map || focusLat === null || focusLng === null) return;
+    holdFocusRef.current = true;
+    map.setCenter(new kakao.maps.LatLng(focusLat, focusLng));
+    map.setLevel(focusLevel ?? DEFAULT_LEVEL);
+  }, [focusLat, focusLng, focusLevel, sdkReady]);
+
+  /**
+   * 위치를 나중에 받아왔을 때 중심을 옮긴다.
+   *
+   * 딥링크로 들어왔으면 **옮기지 않는다.** 몇 초 뒤 지도가 내 위치로 튀면
+   * 링크가 무효가 된다 — 인하대 화장실을 보라고 준 링크인데 내 방이 열린다.
+   * 파란 점·반경 계산·조회는 그대로 돈다. 중심만 안 옮긴다.
+   */
+  useEffect(() => {
+    if (!sdkReady || !mapRef.current || holdFocusRef.current) return;
     mapRef.current.setCenter(new kakao.maps.LatLng(center.lat, center.lng));
   }, [center, sdkReady]);
 

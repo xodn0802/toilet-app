@@ -19,3 +19,5 @@
 # 전 건물을 채울 필요 없다. 자주 가는 건물 몇 개면 충분하고, 나머지는 학생들이
 # 제보 폼으로 채운다.
 building,floor,gender,diaper,disabled,access,open_hours
+정석학술정보관,지하 1층,male,,,,
+하이테크관,2층,male,,,,
