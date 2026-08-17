@@ -2,7 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import Script from "next/script";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { useIdentity } from "@/lib/auth/use-identity";
 import { boundsAround, sameBounds, type Bounds } from "@/lib/geo/bounds";
@@ -22,6 +29,12 @@ import type { RouteState } from "@/lib/route/state";
 import { formatDistance } from "@/lib/route/types";
 import { groupByCoords, type ToiletGroup } from "@/lib/toilets/cluster";
 import { fetchToilets } from "@/lib/toilets/fetch-toilets";
+import {
+  forgetApproved,
+  list as listMySubmissions,
+  listOnServer as listMySubmissionsOnServer,
+  subscribe as subscribeMySubmissions,
+} from "@/lib/toilets/my-submissions";
 import {
   nearbyCandidates,
   pickBest,
@@ -217,6 +230,23 @@ export default function ToiletMap({ initialAdd = false }: Props) {
    */
   const [addSeed, setAddSeed] = useState<AddSeed | null>(null);
 
+  /**
+   * 검토를 기다리는 **내** 제보. 서버에 묻지 않고 이 브라우저의 기록을 읽는다
+   * (lib/toilets/my-submissions.ts).
+   *
+   * `useState` + `useEffect` 가 아니라 외부 저장소로 구독하는 이유 둘 —
+   * 값을 바꾸는 곳이 `submitToilet` 안쪽(AddToiletForm → AddToilet 아래)이라
+   * 콜백을 여기까지 끌어올리지 않아도 되고, effect 안에서 setState 하는 패턴을
+   * 하나 더 늘리지 않는다.
+   */
+  const mySubmissions = useSyncExternalStore(
+    subscribeMySubmissions,
+    listMySubmissions,
+    listMySubmissionsOnServer,
+  );
+  /** 점선 핀을 눌렀을 때 잠깐 뜨는 안내. 이름만 담는다. */
+  const [pendingNotice, setPendingNotice] = useState<string | null>(null);
+
   // 사이드바에서 눌러 들어오면 주소만 바뀌고 이 컴포넌트는 그대로 있다.
   // 그래서 처음 값(useState)만으로는 두 번째부터 안 열린다.
   useEffect(() => {
@@ -335,8 +365,13 @@ export default function ToiletMap({ initialAdd = false }: Props) {
     fetchToilets(viewport, anchorBounds)
       .then((page) => {
         if (cancelled) return;
-        setToilets(page.toilets.filter(isMappable));
+        const rows = page.toilets.filter(isMappable);
+        setToilets(rows);
         setTruncated(page.truncated);
+        // 검토를 통과해 지도에 올라온 제보는 점선 핀에서 뺀다. 승인 SQL 이
+        // 좌표와 이름을 그대로 복사하므로 같은 자리에 같은 이름이 보이면 그게
+        // 승인된 내 제보다. 승인 여부를 물을 API 가 따로 없다.
+        forgetApproved(rows);
         // 다시 성공했으면 지난 실패 안내는 치운다. 조회가 반복되기 때문에
         // 남겨 두면 이미 해결된 오류를 계속 보여주게 된다.
         setToiletsError(null);
@@ -602,6 +637,51 @@ export default function ToiletMap({ initialAdd = false }: Props) {
       marker.setZIndex(MARKER_Z[state]);
     });
   }, [selected, groups, sdkReady, nearIds]);
+
+  /*
+    검토 중인 내 제보의 점선 핀.
+
+    위 마커들과 **다른 effect** 인 이유: 이건 DB 조회 결과가 아니라 이 브라우저의
+    기록이라 갱신되는 시점이 다르다(제보 직후 · 승인 확인 시). 한 effect 로
+    묶으면 화장실 목록이 바뀔 때마다 이쪽 핀까지 지웠다 다시 그린다.
+
+    반경 판정도, 겹침 묶기도 하지 않는다. 승인 전까지는 남의 화장실과 같은 줄에
+    설 물건이 아니고, 개수도 몇 개뿐이다.
+  */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!sdkReady || !map || mySubmissions.length === 0) return;
+
+    const created = mySubmissions.map((entry) => {
+      const marker = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(entry.lat, entry.lng),
+        title: `${entry.name} (검토 중)`,
+        image: toiletMarkerImage("pending"),
+        zIndex: MARKER_Z.pending,
+      });
+      marker.setMap(map);
+      kakao.maps.event.addListener(marker, "click", () => {
+        // 위치를 고르는 중에는 지도가 "어디에 둘지"를 묻는 화면이다.
+        if (addOpenRef.current) return;
+        setPendingNotice(entry.name);
+      });
+      return marker;
+    });
+
+    return () => created.forEach((marker) => marker.setMap(null));
+  }, [mySubmissions, sdkReady]);
+
+  /*
+    안내는 잠깐만 띄운다. 닫기 버튼을 붙일 만큼의 내용이 아니고, 남겨 두면 다른
+    안내(경로·오차)를 계속 아래로 밀어낸다.
+
+    타이머 콜백이라 effect 안에서 바로 setState 하는 것과 다르다.
+  */
+  useEffect(() => {
+    if (!pendingNotice) return;
+    const timer = setTimeout(() => setPendingNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [pendingNotice]);
 
   // 목록에 붙일 평균 별점. 목록이 열릴 때만 한 번 받는다.
   useEffect(() => {
@@ -918,6 +998,12 @@ export default function ToiletMap({ initialAdd = false }: Props) {
                   onCancel={() => setRouteState({ status: "idle" })}
                 />
               </div>
+            )}
+
+            {pendingNotice && (
+              <Notice tone="signal">
+                {pendingNotice} · 검토 중이에요 · 승인되면 지도에 올라갑니다
+              </Notice>
             )}
 
             {guideEmpty && (

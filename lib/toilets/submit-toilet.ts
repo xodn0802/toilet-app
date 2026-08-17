@@ -1,5 +1,6 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
 
+import { remember } from "./my-submissions";
 import type { SubmissionDraft } from "./submission";
 
 /**
@@ -15,6 +16,9 @@ import type { SubmissionDraft } from "./submission";
  *
  * 에러는 그대로 던진다. 화면이 폼을 그대로 둔 채 안내하게 하려는 것 —
  * 적은 내용이 날아가면 다시 안 쓴다.
+ *
+ * 성공하면 **이 브라우저가 그 사실을 기억한다**(my-submissions). 읽기 권한이
+ * 없어 서버에는 다시 물어볼 수 없고, 물어볼 필요도 없다 — 방금 내가 보냈다.
  */
 export async function submitToilet(draft: SubmissionDraft): Promise<void> {
   const { error } = await getSupabaseClient()
@@ -24,4 +28,6 @@ export async function submitToilet(draft: SubmissionDraft): Promise<void> {
   if (error) {
     throw new Error(`추가 요청을 보내지 못했습니다. (${error.message})`);
   }
+
+  remember({ lat: draft.lat, lng: draft.lng, name: draft.name });
 }

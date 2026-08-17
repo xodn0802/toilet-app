@@ -33,9 +33,13 @@ const FAR_OPACITY = 0.45;
  *
  * 핀 머리(중심 18,17 / 반지름 15) 안에 들어가도록 좌표를 잡았다. 두 사람을
  * 나란히 놓으면 이 크기에서 뭉개질 만큼 작지만, 실루엣만으로도 "화장실"로 읽힌다.
+ *
+ * 색을 인자로 받는 이유 — 검토 중 핀은 속이 비어 있어(흰 바닥) 흰 픽토그램이
+ * 안 보인다. 거기서는 청록으로 그린다.
  */
-const PICTOGRAM = `
-  <g transform="translate(0 1.5)" fill="${GLYPH}">
+function pictogram(fill: string): string {
+  return `
+  <g transform="translate(0 1.5)" fill="${fill}">
     <circle cx="12.5" cy="9.4" r="2.2" />
     <rect x="10.3" y="12.4" width="4.4" height="6.2" rx="1.1" />
     <rect x="10.8" y="17.9" width="1.5" height="5.6" rx="0.6" />
@@ -46,6 +50,11 @@ const PICTOGRAM = `
     <rect x="23.7" y="20.2" width="1.4" height="3.3" rx="0.6" />
   </g>
 `;
+}
+
+/** 핀 몸통. 머리 원 + 아래로 뻗은 꼭짓점. */
+const BODY_PATH =
+  "M18 44.5C18 44.5 33 28.5 33 17A15 15 0 1 0 3 17C3 28.5 18 44.5 18 44.5Z";
 
 /**
  * 같은 좌표에 여러 곳이 있을 때 붙이는 개수 배지.
@@ -80,12 +89,37 @@ function pinSvg(opacity: number, count: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
     <g opacity="${opacity}">
       <path
-        d="M18 44.5C18 44.5 33 28.5 33 17A15 15 0 1 0 3 17C3 28.5 18 44.5 18 44.5Z"
+        d="${BODY_PATH}"
         fill="${BODY}" stroke="${EDGE}" stroke-width="2.5" stroke-linejoin="round"
       />
-      ${PICTOGRAM}
+      ${pictogram(GLYPH)}
       ${count > 1 ? badgeSvg(count) : ""}
     </g>
+  </svg>`;
+}
+
+/**
+ * 검토 중인 내 제보.
+ *
+ * **속이 비어 있고 테두리가 점선이다.** 진짜 마커와 한눈에 갈려야 한다 — 색만
+ * 다르게 하면 "다른 종류의 화장실"로 읽히지 "아직 지도에 없는 곳"으로는 안
+ * 읽힌다. 점선은 앱 안에서 이미 같은 말을 하고 있다: 「이 위치에 화장실 추가」
+ * 버튼과 시설 칩의 "정보 없음"이 같은 점선이다.
+ *
+ * 흰 바닥은 지도 타일 위에서 핀 모양을 지키기 위한 것이다. 완전히 투명하게
+ * 두면 도로·건물 위에서 실루엣이 무너진다.
+ *
+ * 개수 배지는 없다. 검토 큐는 좌표로 묶지 않고 보낸 순서 그대로 하나씩 그린다.
+ */
+function pendingPinSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
+    <path
+      d="${BODY_PATH}"
+      fill="${EDGE}" fill-opacity="0.92"
+      stroke="${BODY}" stroke-width="2.5" stroke-dasharray="5 3.5"
+      stroke-linejoin="round"
+    />
+    ${pictogram(BODY)}
   </svg>`;
 }
 
@@ -100,15 +134,11 @@ function toDataUri(svg: string): string {
  * MarkerImage 는 좌표당 하나씩 만들 필요가 없다. 화장실이 수천 개가 되면 같은
  * 객체를 돌려쓰는 편이 훨씬 가벼우므로 모듈 수준에서 한 번만 만들어 캐시한다.
  */
-function createImage(
-  scale: number,
-  opacity: number,
-  count: number,
-): kakao.maps.MarkerImage {
+function createImage(svg: string, scale: number): kakao.maps.MarkerImage {
   const width = Math.round(WIDTH * scale);
   const height = Math.round(HEIGHT * scale);
   return new kakao.maps.MarkerImage(
-    toDataUri(pinSvg(opacity, count)),
+    toDataUri(svg),
     new kakao.maps.Size(width, height),
     // 핀은 뾰족한 끝이 좌표를 가리킨다. 기준점을 가로 중앙·세로 맨 아래로.
     { offset: new kakao.maps.Point(width / 2, height) },
@@ -116,12 +146,15 @@ function createImage(
 }
 
 /**
- * 핀의 세 가지 모습.
+ * 핀의 네 가지 모습.
  *
  * `far` 는 반경 밖이다. 선택은 반경보다 우선한다 — 먼 화장실을 골랐는데 핀이
  * 흐린 채로 있으면 무엇을 골랐는지 안 보인다.
+ *
+ * `pending` 은 **DB 에 없는 핀**이다. 다른 셋은 조회해 온 행을 그리지만 이건
+ * 내 브라우저가 기억하는 제보다(lib/toilets/my-submissions.ts).
  */
-export type MarkerState = "normal" | "far" | "selected";
+export type MarkerState = "normal" | "far" | "selected" | "pending";
 
 /**
  * 개수까지 키에 넣는다. 상태 3가지 × 실제로 쓰이는 개수만큼만 만들어지고,
@@ -142,9 +175,11 @@ export function toiletMarkerImage(
   let image = cache.get(key);
   if (!image) {
     image =
-      state === "selected"
-        ? createImage(SELECTED_SCALE, 1, count)
-        : createImage(1, state === "far" ? FAR_OPACITY : 1, count);
+      state === "pending"
+        ? createImage(pendingPinSvg(), 1)
+        : state === "selected"
+          ? createImage(pinSvg(1, count), SELECTED_SCALE)
+          : createImage(pinSvg(state === "far" ? FAR_OPACITY : 1, count), 1);
     cache.set(key, image);
   }
   return image;
@@ -153,5 +188,8 @@ export function toiletMarkerImage(
 /**
  * 겹칠 때의 순서. 선택 > 반경 안 > 반경 밖.
  * 흐린 핀이 가까운 핀을 가리면 진하게 만든 의미가 없다.
+ *
+ * `pending` 이 `normal` 과 같은 높이인 것은 의도다. 내가 보낸 제보라고 해서
+ * 남들이 실제로 갈 수 있는 화장실을 가릴 이유가 없다.
  */
-export const MARKER_Z = { far: 1, normal: 2, selected: 3 } as const;
+export const MARKER_Z = { far: 1, normal: 2, pending: 2, selected: 3 } as const;

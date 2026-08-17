@@ -137,6 +137,13 @@ export default function AddToiletForm({
         <p className="mt-1 text-sm text-muted">
           개발자가 검토한 뒤 지도에 추가하겠습니다
         </p>
+        {/*
+          검토 큐는 보낸 사람 눈에 아무 일도 안 일어난 것처럼 보인다. 보낸
+          자리에 점선 핀이 남는다는 것을 여기서 말해 둬야 그게 무엇인지 알아본다.
+        */}
+        <p className="mt-1 text-sm text-muted">
+          보낸 곳은 지도에 점선 핀으로 표시됩니다
+        </p>
         <button
           type="button"
           onClick={onClose}
