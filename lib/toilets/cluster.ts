@@ -16,7 +16,7 @@
  * 이 묶음이 그대로 **층 목록**이 된다(0004_building_floor.sql).
  */
 
-import type { MappableToilet } from "./types";
+import { genderLabel, type MappableToilet } from "./types";
 
 export type ToiletGroup = {
   /** `${lat},${lng}`. React key 와 마커 식별에 쓴다. */
@@ -58,11 +58,18 @@ export function groupByCoords(toilets: MappableToilet[]): ToiletGroup[] {
 /**
  * 묶음을 목록에 보일 때의 부제.
  *
- * 건물·층이 있으면 그것이 가장 쓸모 있는 구분이고(같은 좌표라 주소는 다 같다),
- * 없으면 주소로 떨어진다. 둘 다 없으면 null 이라 화면이 아무것도 안 그린다.
+ * 건물·층·남녀가 있으면 그것이 가장 쓸모 있는 구분이고(같은 좌표라 주소는 다
+ * 같다), 없으면 주소로 떨어진다. 둘 다 없으면 null 이라 화면이 아무것도 안 그린다.
+ *
+ * 성별까지 잇는 이유 — 같은 건물 같은 층에 남/여가 나란히 있으면 앞의 둘로는
+ * **두 줄이 완전히 같은 글자가 된다.**
  */
 export function toiletSubtitle(toilet: MappableToilet): string | null {
-  const place = [toilet.building, toilet.floor].filter(Boolean);
+  const place = [
+    toilet.building,
+    toilet.floor,
+    genderLabel(toilet.gender),
+  ].filter(Boolean);
   if (place.length > 0) return place.join(" · ");
   return toilet.road_address ?? toilet.jibun_address;
 }

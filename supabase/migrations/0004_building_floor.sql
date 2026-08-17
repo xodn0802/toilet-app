@@ -46,44 +46,10 @@ alter table public.toilet_submissions
 -- reviewed_at·toilet_id·user_id 만 검사하므로 새 컬럼도 그대로 통과한다.
 
 -- ---------------------------------------------------------------------------
--- 승인 SQL — 0002 주석의 것을 **이 파일이 대체한다**
+-- 승인 SQL — **0005_gender.sql 주석의 것을 쓸 것**
 --
--- 0002 의 쿼리는 building·floor 를 모르므로 그대로 쓰면 제보의 건물·층이 조용히
--- 버려진다. 앞으로는 아래를 쓸 것.
---
--- ⚠️ toilets_has_address check 때문에 **주소가 둘 다 NULL 이면 실패한다(23514).**
---    역지오코딩이 안 된 제보가 여기 해당한다 — 주소를 채워 넣고 다시 실행할 것.
---
--- ⚠️ 휴지·비누는 여전히 옮겨지지 않는다. toilets 에 컬럼이 없다. "오늘 있고
---    내일 없는" 정보라 reviews.tags 의 몫이다(0002 주석 참고).
+-- 여기 있던 쿼리는 0002 의 것을 대체한 것이었지만(building·floor 추가), 이제는
+-- gender 를 몰라서 같은 이유로 낡았다. 승인 쿼리는 한 곳에만 있어야 하므로
+-- **가장 최근 마이그레이션 것 하나만 남긴다** — 여러 벌이 있으면 오래된 쪽을
+-- 복사해 컬럼이 조용히 버려진다.
 -- ---------------------------------------------------------------------------
-
--- 대기 목록 보기
---
---   select id, name, building, floor, road_address, jibun_address, access,
---          open_hours, unisex, facilities, note, created_at
---     from public.toilet_submissions
---    where status = 'pending'
---    order by created_at;
-
--- 승인 — 제보 한 건을 toilets 로 옮긴다. 좌표를 직접 받았으므로 지오코딩은 없다.
---
---   with s as (
---     select * from public.toilet_submissions where id = '<제보 id>'
---   ), ins as (
---     insert into public.toilets
---       (source, name, building, floor, road_address, jibun_address, lat, lng,
---        geocode_status, access, open_hours, unisex,
---        has_diaper_table, has_disabled_toilet)
---     select 'user', s.name, s.building, s.floor, s.road_address, s.jibun_address,
---            s.lat, s.lng, 'ok', s.access, s.open_hours, s.unisex,
---            'diaper' = any(s.facilities), 'accessible' = any(s.facilities)
---       from s
---     returning id
---   )
---   update public.toilet_submissions
---      set status = 'approved', reviewed_at = now(),
---          toilet_id = (select id from ins)
---    where id = '<제보 id>';
-
--- 반려는 0002 의 것 그대로다.

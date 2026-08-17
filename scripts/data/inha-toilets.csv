@@ -5,7 +5,9 @@
 #
 # building  카카오맵에 나오는 이름 그대로. "5호관", "하이테크센터"
 # floor     "3층", "B1", "지하 1층" 처럼 보이는 그대로
-# unisex    남녀공용이면 y, 아니면 n, 모르면 빈칸
+# gender    male(남자) · female(여자) · all(남녀공용) · 빈칸(모름)
+#           같은 층에 남/여가 따로 있으면 두 줄로 적는다. 이 칸이 비면 두 줄이
+#           같은 화장실로 취급돼 나중 줄이 앞줄을 덮어쓴다.
 # diaper    기저귀 교환대 y / n / 빈칸
 # disabled  장애인 화장실 y / n / 빈칸
 # access    free(무료) · open(개방) · purchase(음료구매) · paid(유료) · 빈칸
@@ -16,4 +18,4 @@
 #
 # 전 건물을 채울 필요 없다. 자주 가는 건물 몇 개면 충분하고, 나머지는 학생들이
 # 제보 폼으로 채운다.
-building,floor,unisex,diaper,disabled,access,open_hours
+building,floor,gender,diaper,disabled,access,open_hours

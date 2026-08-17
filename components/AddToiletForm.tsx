@@ -6,15 +6,18 @@ import type { ReverseGeocodeResult } from "@/lib/map/reverse-geocode";
 import {
   ACCESS_OPTIONS,
   FACILITY_OPTIONS,
+  GENDER_OPTIONS,
   MAX_BUILDING_LENGTH,
   MAX_FLOOR_LENGTH,
   MAX_NAME_LENGTH,
   MAX_NOTE_LENGTH,
   MAX_OPEN_HOURS_LENGTH,
+  unisexFromGender,
   type AccessType,
   type Facility,
   type SubmissionDraft,
 } from "@/lib/toilets/submission";
+import type { Gender } from "@/lib/toilets/types";
 
 import Icon from "./Icons";
 
@@ -57,13 +60,6 @@ function Chip({
 const INPUT_CLASS =
   "mt-1.5 w-full rounded-xl border border-line bg-sunken px-3 py-2.5 text-sm placeholder:text-muted focus:border-brand focus:bg-surface focus:outline-none";
 
-/** 남녀공용은 3단이다. 2단으로 만들면 안 고른 사람이 전부 "아니오"가 된다. */
-const UNISEX_OPTIONS: { value: boolean | null; label: string }[] = [
-  { value: true, label: "예" },
-  { value: false, label: "아니오" },
-  { value: null, label: "모름" },
-];
-
 export default function AddToiletForm({
   position,
   address,
@@ -76,7 +72,7 @@ export default function AddToiletForm({
   const [floor, setFloor] = useState("");
   const [access, setAccess] = useState<AccessType | null>(null);
   const [openHours, setOpenHours] = useState("");
-  const [unisex, setUnisex] = useState<boolean | null>(null);
+  const [gender, setGender] = useState<Gender | null>(null);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [note, setNote] = useState("");
 
@@ -109,7 +105,9 @@ export default function AddToiletForm({
         jibun_address: address.jibun,
         access,
         open_hours: openHours.trim() || null,
-        unisex,
+        gender,
+        // 폼은 성별만 묻는다. 둘을 따로 물으면 "남자용인데 남녀공용"이 만들어진다.
+        unisex: unisexFromGender(gender),
         facilities,
         note: note.trim() || null,
       });
@@ -253,15 +251,20 @@ export default function AddToiletForm({
           className={INPUT_CLASS}
         />
 
+        {/*
+          같은 층에 남/여가 따로 있는 것이 캠퍼스 실내 화장실의 기본이라, 이 칸이
+          비면 두 화장실이 한 줄로 뭉개진다. "모름"이 기본값인 것은 그대로다 —
+          안 고른 사람을 특정 값으로 밀어 넣지 않는다.
+        */}
         <p className="mt-4 text-sm font-medium">
-          남녀공용 <span className="text-muted">(선택)</span>
+          남녀 <span className="text-muted">(선택)</span>
         </p>
         <ul className="mt-1.5 flex flex-wrap gap-2">
-          {UNISEX_OPTIONS.map((option) => (
+          {GENDER_OPTIONS.map((option) => (
             <li key={option.label}>
               <Chip
-                on={unisex === option.value}
-                onClick={() => setUnisex(option.value)}
+                on={gender === option.value}
+                onClick={() => setGender(option.value)}
               >
                 {option.label}
               </Chip>

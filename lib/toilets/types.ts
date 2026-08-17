@@ -9,6 +9,25 @@
 export type ToiletSource = "public" | "user";
 export type GeocodeStatus = "pending" | "ok" | "failed";
 
+/**
+ * 남자용 / 여자용 / 남녀공용. 0005_gender.sql 의 check 와 같은 값이다.
+ *
+ * `unisex` 로는 "공용이냐"까지만 말할 수 있어서 따로 둔다. 캠퍼스 실내
+ * 화장실은 같은 층에 남/여가 따로 있어 이 구분이 없으면 두 행을 구별할 수 없다.
+ */
+export type Gender = "male" | "female" | "all";
+
+const GENDER_LABELS: Record<Gender, string> = {
+  male: "남자",
+  female: "여자",
+  all: "남녀공용",
+};
+
+/** 모르면 null 을 돌려준다 — 화면이 아무것도 안 그리게 하기 위해서다. */
+export function genderLabel(gender: Gender | null): string | null {
+  return gender === null ? null : GENDER_LABELS[gender];
+}
+
 export type Toilet = {
   id: string;
   source: ToiletSource;
@@ -21,6 +40,12 @@ export type Toilet = {
    */
   building: string | null;
   floor: string | null;
+  /**
+   * 남/여 구분. 건물·층과 같은 자리의 정보다 — 같은 좌표·같은 층에 두 행이
+   * 있을 때 이것만이 둘을 가른다(0005_gender.sql). 공공데이터는 안 주므로
+   * 수집된 행은 전부 null 이다.
+   */
+  gender: Gender | null;
   road_address: string | null;
   jibun_address: string | null;
   /** 공공데이터가 좌표를 주지 않으므로 지오코딩 전에는 null 이다. */

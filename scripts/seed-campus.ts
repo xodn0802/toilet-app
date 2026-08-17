@@ -35,11 +35,15 @@
  * ---------------------------------------------------------------------------
  * 여러 번 돌려도 안전하다
  *
- * `external_id` 를 `inha-{건물}-{층}` 으로 만들어 그 값으로 upsert 한다.
+ * `external_id` 를 `inha-{건물}-{층}-{성별}` 로 만들어 그 값으로 upsert 한다.
  * 0001_init.sql 은 이 칸을 "공공데이터 관리번호, 사용자 등록 건은 NULL" 로
  * 적어 뒀는데, **시드는 사람이 손으로 넣는 것이 아니라 스크립트가 다시 넣을 수
  * 있어야 하는 것**이라 여기서는 채운다. 접두사 `inha-` 가 공공데이터 번호와
  * 겹칠 일을 막는다.
+ *
+ * **성별이 키에 들어가는 이유** — 캠퍼스 실내 화장실은 같은 층에 남/여가 나란히
+ * 있는 것이 기본이라, `inha-{건물}-{층}` 까지만 쓰면 두 줄이 한 행을 두고 싸워
+ * 뒤엣것이 앞엣것을 조용히 덮어쓴다(0005_gender.sql).
  */
 
 import { readFileSync } from "node:fs";
@@ -62,7 +66,7 @@ const CAMPUS_ADDRESS = "인천광역시 미추홀구 인하로 100";
 const HEADER = [
   "building",
   "floor",
-  "unisex",
+  "gender",
   "diaper",
   "disabled",
   "access",
@@ -71,10 +75,22 @@ const HEADER = [
 
 const ACCESS_VALUES = new Set(["free", "open", "purchase", "paid"]);
 
+/**
+ * 0005_gender.sql 의 check · lib/toilets/types.ts 의 `Gender` 와 같은 값이다.
+ * 스크립트는 `@/` 별칭을 안 쓰므로(다른 수집 스크립트도 그렇다) 여기서 다시 적는다.
+ */
+const GENDER_LABELS = {
+  male: "남자",
+  female: "여자",
+  all: "남녀공용",
+} as const;
+
+type Gender = keyof typeof GENDER_LABELS;
+
 type Row = {
   building: string;
   floor: string;
-  unisex: boolean | null;
+  gender: Gender | null;
   diaper: boolean | null;
   disabled: boolean | null;
   access: string | null;
@@ -98,6 +114,15 @@ function parseTriState(value: string, line: number, column: string) {
   if (value === "y") return true;
   if (value === "n") return false;
   throw new Error(`${line}행 ${column} — y·n·빈칸만 됩니다 ("${value}")`);
+}
+
+/** 빈칸은 "모름"(null)이지 "공용"이 아니다. parseTriState 와 같은 원칙이다. */
+function parseGender(value: string, line: number): Gender | null {
+  if (value === "") return null;
+  if (value in GENDER_LABELS) return value as Gender;
+  throw new Error(
+    `${line}행 gender — ${Object.keys(GENDER_LABELS).join("·")} 또는 빈칸 ("${value}")`,
+  );
 }
 
 /**
@@ -129,7 +154,7 @@ function parseCsv(text: string): Row[] {
       );
     }
 
-    const [building, floor, unisex, diaper, disabled, access, openHours] =
+    const [building, floor, gender, diaper, disabled, access, openHours] =
       cells;
     if (!building || !floor) {
       throw new Error(`${at}행 — building 과 floor 는 비울 수 없습니다.`);
@@ -143,7 +168,7 @@ function parseCsv(text: string): Row[] {
     return {
       building,
       floor,
-      unisex: parseTriState(unisex, at, "unisex"),
+      gender: parseGender(gender, at),
       diaper: parseTriState(diaper, at, "diaper"),
       disabled: parseTriState(disabled, at, "disabled"),
       access: access || null,
@@ -234,19 +259,24 @@ async function main() {
 
   const payload = rows.map((row) => {
     const place = places.get(row.building)!;
+    // 이름에도 성별을 넣는다. 같은 좌표의 층 목록에서 남/여가 나란히 뜨는데
+    // 이름이 같으면 어느 쪽을 눌렀는지 알 수 없다.
+    const suffix = row.gender === null ? "" : ` ${GENDER_LABELS[row.gender]}`;
     return {
       source: "user",
-      external_id: `inha-${row.building}-${row.floor}`,
-      name: `${row.building} ${row.floor}`,
+      external_id: `inha-${row.building}-${row.floor}-${row.gender ?? ""}`,
+      name: `${row.building} ${row.floor}${suffix}`,
       building: row.building,
       floor: row.floor,
+      gender: row.gender,
       road_address: place.address ?? CAMPUS_ADDRESS,
       lat: place.lat,
       lng: place.lng,
       // 좌표를 직접 넣었으므로 지오코딩 대상이 아니다. pending 으로 두면
       // npm run geocode 가 이 행의 좌표를 주소로 덮어쓴다.
       geocode_status: "ok",
-      unisex: row.unisex,
+      // gender 에서 만든다 — 둘을 따로 적으면 서로 다른 말을 하게 된다.
+      unisex: row.gender === null ? null : row.gender === "all",
       has_diaper_table: row.diaper,
       has_disabled_toilet: row.disabled,
       access: row.access,

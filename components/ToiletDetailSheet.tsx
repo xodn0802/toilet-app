@@ -13,7 +13,7 @@ import {
   type Review,
   type ReviewDraft,
 } from "@/lib/reviews/types";
-import type { MappableToilet } from "@/lib/toilets/types";
+import { genderLabel, type MappableToilet } from "@/lib/toilets/types";
 
 import CleanlinessMeter from "./CleanlinessMeter";
 import Icon from "./Icons";
@@ -70,9 +70,11 @@ export default function ToiletDetailSheet({
         ? "리뷰 없음"
         : `리뷰 ${loaded.length}개`;
 
-  // 건물·층. 사용자 등록분에만 있다(0004_building_floor.sql).
+  // 건물·층·남녀. 사용자 등록분에만 있다(0004·0005 마이그레이션).
   const place =
-    [toilet.building, toilet.floor].filter(Boolean).join(" · ") || null;
+    [toilet.building, toilet.floor, genderLabel(toilet.gender)]
+      .filter(Boolean)
+      .join(" · ") || null;
 
   // 길찾기를 하고 나면 실제 도보 거리를 알게 되므로 직선거리는 물러난다.
   const distanceLabel = route

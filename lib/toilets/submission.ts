@@ -5,7 +5,32 @@
  * 필드명을 맞춰 두었다. 그대로 insert 하는 모양이라 snake_case 다.
  */
 
+import type { Gender } from "./types";
+
 export type AccessType = "free" | "open" | "purchase" | "paid";
+
+/**
+ * 성별은 4단이다 — 남자 / 여자 / 공용 / 모름. 모름이 null 이다.
+ *
+ * 3단(예/아니오/모름)이던 남녀공용 칩을 이걸로 갈아치웠다. "아니오"는 공용이
+ * 아니라는 것까지만 말해서, 정작 남자용인지 여자용인지는 못 담았다.
+ */
+export const GENDER_OPTIONS: { value: Gender | null; label: string }[] = [
+  { value: "male", label: "남자" },
+  { value: "female", label: "여자" },
+  { value: "all", label: "공용" },
+  { value: null, label: "모름" },
+];
+
+/**
+ * unisex 를 gender 에서 만든다. **두 값이 어긋날 자리를 없애는 것이 목적이다.**
+ *
+ * 화면이 둘을 따로 묻지 않고, 시설 정보 표시는 여전히 unisex 를 읽는다
+ * (공공데이터 5만 행에는 gender 가 없다). 0005_gender.sql 주석 참고.
+ */
+export function unisexFromGender(gender: Gender | null): boolean | null {
+  return gender === null ? null : gender === "all";
+}
 
 /** 이용조건. README P1-9 의 태그와 같은 값이지만 필터는 아직 안 만든다. */
 export const ACCESS_OPTIONS: { value: AccessType; label: string }[] = [
@@ -55,6 +80,8 @@ export type SubmissionDraft = {
    */
   building: string | null;
   floor: string | null;
+  /** 남자/여자/공용/모름. 모름이 null 이다(0005_gender.sql). */
+  gender: Gender | null;
   lat: number;
   lng: number;
   /** 역지오코딩 결과. 못 읽었으면 null 이고, 그래도 접수는 된다. */
@@ -62,7 +89,7 @@ export type SubmissionDraft = {
   jibun_address: string | null;
   access: AccessType | null;
   open_hours: string | null;
-  /** 예/아니오/모름 3단. 모름이 null 이다. */
+  /** 폼이 묻지 않는다 — `unisexFromGender` 가 gender 에서 만든다. */
   unisex: boolean | null;
   facilities: Facility[];
   note: string | null;

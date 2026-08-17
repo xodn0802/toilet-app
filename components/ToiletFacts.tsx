@@ -1,7 +1,7 @@
 "use client";
 
 import { countTag, REVIEW_TAGS, type Review } from "@/lib/reviews/types";
-import type { MappableToilet } from "@/lib/toilets/types";
+import { genderLabel, type MappableToilet } from "@/lib/toilets/types";
 
 import Icon, { type IconName } from "./Icons";
 
@@ -21,9 +21,18 @@ type Props = {
 
 const UNKNOWN = "정보 없음";
 
-function formatUnisex(unisex: boolean | null): string {
-  if (unisex === null) return UNKNOWN;
-  return unisex ? "남녀공용" : "남녀분리";
+/**
+ * 남녀 칸. `gender` 가 있으면 그쪽이 항상 더 정확하다.
+ *
+ * `unisex` 는 "공용이냐"까지만 답해서 남자용과 여자용이 똑같이 "남녀분리"로
+ * 뭉개진다. 공공데이터 5만 행에는 `gender` 가 없으므로 그때만 unisex 로
+ * 떨어진다(0005_gender.sql). 두 값은 `unisexFromGender` 가 만들어 어긋나지 않는다.
+ */
+function formatGender(toilet: MappableToilet): string {
+  const label = genderLabel(toilet.gender);
+  if (label !== null) return label;
+  if (toilet.unisex === null) return UNKNOWN;
+  return toilet.unisex ? "남녀공용" : "남녀분리";
 }
 
 /** 변기 수를 "남 대변기 3 · 소변기 5 / 여 대변기 5" 형태로 한 줄에 담는다. */
@@ -86,7 +95,7 @@ function FacilityChip({
 
 export default function ToiletFacts({ toilet, reviews }: Props) {
   const rows = [
-    { label: "남녀", value: formatUnisex(toilet.unisex) },
+    { label: "남녀", value: formatGender(toilet) },
     { label: "변기", value: formatToiletCounts(toilet) },
     { label: "개방시간", value: toilet.open_hours ?? UNKNOWN },
     {
