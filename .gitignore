@@ -42,7 +42,8 @@ yarn-error.log*
 next-env.d.ts
 
 # oh-my-claudecode (도구가 만드는 로컬 세션 상태·프로젝트 메모리)
-/.omc/
+# 루트 고정(/.omc/)이면 supabase/migrations/.omc/ 처럼 하위에 생긴 것을 못 거른다.
+.omc/
 
 # Stitch 디자인 초안 (2.3MB). 참고 자료라 저장소에 넣지 않는다.
 # 커밋 여부와 별개로 여기 반드시 있어야 한다 — Tailwind v4 는 프로젝트 안을
